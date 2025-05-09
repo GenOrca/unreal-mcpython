@@ -1,18 +1,35 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "UnrealMCPython.h"
+#include "Sockets.h"
+#include "SocketSubsystem.h"
+#include "IPAddress.h"
+#include "Networking.h"
+#include "HAL/RunnableThread.h"
+#include "Common/TcpListener.h"
+#include "IPythonScriptPlugin.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonReader.h"
+#include "Dom/JsonObject.h"
+#include "MCPythonTcpServer.h"
 
 #define LOCTEXT_NAMESPACE "FUnrealMCPythonModule"
 
 void FUnrealMCPythonModule::StartupModule()
 {
-	// This code will execute after your module is loaded into memory; the exact timing is specified in the .uplugin file per-module
+	static const uint16 SERVER_PORT = 12029;
+	static const FString SERVER_IP = TEXT("127.0.0.1");
+	TcpServer = MakeUnique<FMCPythonTcpServer>();
+	TcpServer->Start(SERVER_IP, SERVER_PORT);
 }
 
 void FUnrealMCPythonModule::ShutdownModule()
 {
-	// This function may be called during shutdown to clean up your module.  For modules that support dynamic reloading,
-	// we call this function before unloading the module.
+	if (TcpServer)
+	{
+		TcpServer->Stop();
+		TcpServer.Reset();
+	}
 }
 
 #undef LOCTEXT_NAMESPACE

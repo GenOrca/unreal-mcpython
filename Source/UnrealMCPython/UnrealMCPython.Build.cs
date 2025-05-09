@@ -26,6 +26,14 @@ public class UnrealMCPython : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
+				"Engine",
+				"InputCore",
+				"PythonScriptPlugin",
+				"Json",
+				"JsonUtilities",
+				"Networking",
+				"Sockets",
 				// ... add other public dependencies that you statically link with here ...
 			}
 			);
