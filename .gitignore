@@ -1,0 +1,65 @@
+# Unreal Engine Plugin Gitignore
+
+# Binary and intermediate files
+Binaries/
+Build/
+Intermediate/
+Saved/
+
+# VS and Rider IDE
+.vscode/
+.idea/
+*.sln
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+
+# MacOS
+.DS_Store
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Compiled Python files
+__pycache__/
+*.pyc
+
+# Compiled binaries and temporary files
+*.log
+*.obj
+*.pdb
+*.idb
+*.exe
+*.dll
+*.lib
+*.app
+*.dSYM/
+
+# Auto-generated plugin descriptor backups
+*.uplugin.backup
+
+# Crash and backup files
+*.tmp
+*.bak
+*.old
+
+# Unreal specific files
+DerivedDataCache/
+Script/
+*.generated.*
+*.gen.*
+*.generated.cpp
+*.generated.h
+
+# Ignore precompiled headers and auto-generated code
+*.pch
+*.obj
+*.cpp.obj
+*.cpp.d
+*.h.d
+
+# Optional: Plugin-specific metadata
+.vs/
