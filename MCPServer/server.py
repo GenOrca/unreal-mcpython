@@ -7,7 +7,7 @@ mcp = FastMCP("Unreal MCP Server")
 @mcp.tool()
 def run_unreal_print(message: str) -> dict:
     """
-    언리얼 에디터에서 print(message)를 실행합니다.
+    Executes print(message) in the Unreal Editor.
     """
     sanitized_message = message.replace("'", "\\'")  # Escape single quotes
     command = {
@@ -22,7 +22,7 @@ def run_unreal_print(message: str) -> dict:
 @mcp.tool()
 def find_asset_by_name(name: str) -> str:
     """
-    에셋 이름을 기반으로 Unreal 에셋 경로를 반환합니다.
+    Returns the Unreal asset path based on the asset name.
     """
     command = {
         "type": "python",
@@ -38,7 +38,7 @@ def find_asset_by_name(name: str) -> str:
 @mcp.tool()
 def spawn_actor_from_object(asset_path: str, location: list[float]) -> dict:
     """
-    에셋 경로와 위치를 기반으로 Unreal에서 액터를 스폰합니다.
+    Spawns an actor in Unreal based on the asset path and location.
     """
     command = {
         "type": "python",
@@ -61,12 +61,12 @@ def spawn_actor_from_object(asset_path: str, location: list[float]) -> dict:
 
 def send_to_unreal(command: dict) -> dict:
     """
-    UnrealMCPython 소켓 서버(127.0.0.1:12029)로 JSON 명령을 보내고 결과를 반환합니다.
+    Sends a JSON command to the UnrealMCPython socket server (127.0.0.1:12029) and returns the result.
     """
     HOST = '127.0.0.1'
     PORT = 12029
     try:
-        # JSON 직렬화 - ensure_ascii=False로 비ASCII 문자 그대로 유지
+        # JSON serialization - keep non-ASCII characters as is with ensure_ascii=False
         json_str = json.dumps(command, ensure_ascii=False)
         message = json_str.encode('utf-8')
         
@@ -87,10 +87,10 @@ def send_to_unreal(command: dict) -> dict:
                 return json.loads(response_str)
             except json.JSONDecodeError as je:
                 print(f"JSON decode error: {je}, Raw response: {response_str}")
-                return {"success": False, "message": f"JSON 디코딩 오류: {je}"}
+                return {"success": False, "message": f"JSON decoding error: {je}"}
     except Exception as e:
         print(f"Error communicating with Unreal: {e}")
-        return {"success": False, "message": f"연결/실행 오류: {e}"}
+        return {"success": False, "message": f"Connection/Execution error: {e}"}
 
 if __name__ == "__main__":
     mcp.run()
