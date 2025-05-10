@@ -9,10 +9,13 @@ def run_unreal_print(message: str) -> dict:
     """
     언리얼 에디터에서 print(message)를 실행합니다.
     """
-    sanitized_message = message.replace("'", "\'")  # Escape single quotes
+    sanitized_message = message.replace("'", "\\'")  # Escape single quotes
     command = {
         "type": "python",
-        "code": f"print('{sanitized_message}')"
+        "code": (
+            f"print('{sanitized_message}');"
+            f"{{'message': '{sanitized_message}', 'success': True}}"
+        )
     }
     return send_to_unreal(command)
 
@@ -24,11 +27,10 @@ def find_asset_by_name(name: str) -> str:
     command = {
         "type": "python",
         "code": (
-            f"import unreal; "
-            f"assets = unreal.EditorAssetLibrary.list_assets('/Game', recursive=True); "
-            f"result = [asset for asset in assets if asset.endswith('{name}')];"
-            f"print(result);"
-            f"result;"
+            "import unreal\n"
+            "assets = unreal.EditorAssetLibrary.list_assets('/Game', recursive=True)\n"
+            "result = [asset for asset in assets if '" + name.replace("'", "\'") + "' in asset]\n"
+            "print(result)\n"
         )
     }
     return send_to_unreal(command)
@@ -41,30 +43,53 @@ def spawn_actor_from_object(asset_path: str, location: list[float]) -> dict:
     command = {
         "type": "python",
         "code": (
-            f"import unreal; "
-            f"actor_class = unreal.EditorAssetLibrary.load_blueprint_class('{asset_path}'); "
-            f"if actor_class: "
-            f"    actor = unreal.EditorLevelLibrary.spawn_actor_from_class(actor_class, unreal.Vector({location[0]}, {location[1]}, {location[2]})); "
-            f"    result = {{'success': True, 'actor_name': actor.get_name()}} "
-            f"else: "
-            f"    result = {{'success': False, 'message': 'Failed to load actor class'}}"
+            "import unreal\n"
+            f"asset_data = unreal.EditorAssetLibrary.find_asset_data('{asset_path}')\n"
+            "result = {}\n"
+            "if asset_data:\n"
+            f"    actor = unreal.get_editor_subsystem(unreal.EditorActorSubsystem).spawn_actor_from_object(asset_data.get_asset(), unreal.Vector({location[0]}, {location[1]}, {location[2]}))\n"
+            "    if actor:\n"
+            "        result = {'success': True, 'actor_label': actor.get_actor_label()}\n"
+            "    else:\n"
+            "        result = {'success': False, 'message': 'Failed to spawn actor'}\n"
+            "else:\n"
+            "    result = {'success': False, 'message': 'Asset not found'}\n"
+            "print(result)"
         )
     }
     return send_to_unreal(command)
 
 def send_to_unreal(command: dict) -> dict:
     """
-    UnrealMCPython 소켓 서버(127.0.0.1:9001)로 JSON 명령을 보내고 결과를 반환합니다.
+    UnrealMCPython 소켓 서버(127.0.0.1:12029)로 JSON 명령을 보내고 결과를 반환합니다.
     """
     HOST = '127.0.0.1'
     PORT = 12029
-    message = json.dumps(command).encode('utf-8')
     try:
+        # JSON 직렬화 - ensure_ascii=False로 비ASCII 문자 그대로 유지
+        json_str = json.dumps(command, ensure_ascii=False)
+        message = json_str.encode('utf-8')
+        
+        print(f"Sending to Unreal: {json_str}")
+        
         with socket.create_connection((HOST, PORT), timeout=5) as sock:
             sock.sendall(message)
-            response = sock.recv(4096)
-            return json.loads(response.decode('utf-8'))
+            response = b''
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                response += chunk
+            
+            try:
+                response_str = response.decode('utf-8')
+                print(f"Raw response from Unreal: {response_str}")
+                return json.loads(response_str)
+            except json.JSONDecodeError as je:
+                print(f"JSON decode error: {je}, Raw response: {response_str}")
+                return {"success": False, "message": f"JSON 디코딩 오류: {je}"}
     except Exception as e:
+        print(f"Error communicating with Unreal: {e}")
         return {"success": False, "message": f"연결/실행 오류: {e}"}
 
 if __name__ == "__main__":
