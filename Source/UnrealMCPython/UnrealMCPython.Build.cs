@@ -29,12 +29,11 @@ public class UnrealMCPython : ModuleRules
 				"CoreUObject",
 				"Engine",
 				"InputCore",
-				"PythonScriptPlugin",
+				"Sockets",
+				"Networking",
 				"Json",
 				"JsonUtilities",
-				"Networking",
-				"Sockets",
-				// ... add other public dependencies that you statically link with here ...
+				"PythonScriptPlugin"
 			}
 			);
 			
