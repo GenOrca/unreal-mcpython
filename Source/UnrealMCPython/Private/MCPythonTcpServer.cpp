@@ -10,6 +10,74 @@
 
 DEFINE_LOG_CATEGORY_STATIC(LogMCPython, Log, All);
 
+// Helper function to convert FJsonValue to Python literal string
+FString ConvertJsonValueToPythonLiteral(const TSharedPtr<FJsonValue>& JsonVal)
+{
+    if (!JsonVal.IsValid() || JsonVal->Type == EJson::Null) return TEXT("None");
+
+    switch (JsonVal->Type)
+    {
+        case EJson::String:
+        {
+            FString EscapedString = JsonVal->AsString();
+            // Order of replacement is important.
+            // Escape backslashes: "\" -> "\\"
+            EscapedString = EscapedString.Replace(TEXT("\\"), TEXT("\\\\"));
+            // Escape single quotes: ' -> \'
+            EscapedString = EscapedString.Replace(TEXT("\'"), TEXT("\\\'"));
+            // Escape double quotes: \" -> \\\"
+            EscapedString = EscapedString.Replace(TEXT("\""), TEXT("\\\""));
+            // Escape newlines: \n -> \\n
+            EscapedString = EscapedString.Replace(TEXT("\n"), TEXT("\\n"));
+            // Escape carriage returns: \r -> \\r
+            EscapedString = EscapedString.Replace(TEXT("\r"), TEXT("\\r"));
+            // Escape tabs: \t -> \\t
+            EscapedString = EscapedString.Replace(TEXT("\t"), TEXT("\\t"));
+            return FString::Printf(TEXT("\'%s\'"), *EscapedString);
+        }
+        case EJson::Number:
+            return JsonVal->AsString();
+        case EJson::Boolean:
+            return JsonVal->AsBool() ? TEXT("True") : TEXT("False");
+        case EJson::Array:
+        {
+            FString ArrayLiteral = TEXT("[");
+            const auto& Array = JsonVal->AsArray();
+            for (int32 i = 0; i < Array.Num(); ++i) {
+                ArrayLiteral += ConvertJsonValueToPythonLiteral(Array[i]);
+                if (i < Array.Num() - 1) ArrayLiteral += TEXT(", ");
+            }
+            ArrayLiteral += TEXT("]");
+            return ArrayLiteral;
+        }
+        case EJson::Object:
+        {
+            FString DictLiteral = TEXT("{");
+            const auto& Object = JsonVal->AsObject();
+            bool bFirst = true;
+            for (const auto& Pair : Object->Values) {
+                if (!bFirst) DictLiteral += TEXT(", ");
+                
+                FString KeyString = Pair.Key;
+                // Escape key string as well (similar to EJson::String case)
+                KeyString = KeyString.Replace(TEXT("\\"), TEXT("\\\\"));
+                KeyString = KeyString.Replace(TEXT("\'"), TEXT("\\\'"));
+                KeyString = KeyString.Replace(TEXT("\""), TEXT("\\\""));
+                KeyString = KeyString.Replace(TEXT("\n"), TEXT("\\n"));
+                KeyString = KeyString.Replace(TEXT("\r"), TEXT("\\r"));
+                KeyString = KeyString.Replace(TEXT("\t"), TEXT("\\t"));
+
+                DictLiteral += FString::Printf(TEXT("\'%s\': %s"), *KeyString, *ConvertJsonValueToPythonLiteral(Pair.Value));
+                bFirst = false;
+            }
+            DictLiteral += TEXT("}");
+            return DictLiteral;
+        }
+        default:
+            return TEXT("None");
+    }
+}
+
 FMCPythonTcpServer::FMCPythonTcpServer() {}
 FMCPythonTcpServer::~FMCPythonTcpServer() { Stop(); }
 
@@ -19,7 +87,6 @@ bool FMCPythonTcpServer::Start(const FString& InIP, uint16 InPort)
     FIPv4Address::Parse(InIP, IPAddr);
     FIPv4Endpoint Endpoint(IPAddr, InPort);
 
-    // Set up the listener
     TcpListener = MakeShared<FTcpListener>(Endpoint, FTimespan::FromMilliseconds(100), false);
     TcpListener->OnConnectionAccepted().BindRaw(this, &FMCPythonTcpServer::HandleIncomingConnection);
 
@@ -68,77 +135,165 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
 {
     UE_LOG(LogMCPython, Log, TEXT("Processing Data on Game Thread: %s"), *Data);
 
-    // Parse JSON
     TSharedPtr<FJsonObject> JsonObj;
     TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Data);
     FString TypeField;
     FString CodeField;
     FString ResultMsg;
-    FString Result;
-    bool bSuccess = false;
+    bool bExecSuccess = false;
 
     if (FJsonSerializer::Deserialize(Reader, JsonObj) && JsonObj.IsValid())
     {
-        if (JsonObj->TryGetStringField(TEXT("type"), TypeField) && JsonObj->TryGetStringField(TEXT("code"), CodeField))
+        if (JsonObj->TryGetStringField(TEXT("type"), TypeField))
         {
             if (TypeField == TEXT("python"))
             {
-                if (IPythonScriptPlugin::Get())
+                if (!JsonObj->TryGetStringField(TEXT("code"), CodeField))
                 {
-                    LogCapture.Clear();
-                    GLog->AddOutputDevice(&LogCapture);
-                    
-                    FPythonCommandEx PythonCommand;
-                    PythonCommand.Command = CodeField;
-                    
-                    bSuccess = IPythonScriptPlugin::Get()->ExecPythonCommandEx(PythonCommand);
-                    
-                    GLog->RemoveOutputDevice(&LogCapture);
-                    FString CapturedLogs = LogCapture.GetLogs();
+                    ResultMsg = TEXT("Failed: 'code' field missing for type 'python'");
+                    CodeField = TEXT("import json; print(json.dumps({'success': False, 'message': 'Error: code field missing'}))");
+                }
+            }
+            else if (TypeField == TEXT("python_call"))
+            {
+                FString ModuleName, FunctionName;
+                if (JsonObj->TryGetStringField(TEXT("module"), ModuleName) &&
+                    JsonObj->TryGetStringField(TEXT("function"), FunctionName))
+                {
+                    const TArray<TSharedPtr<FJsonValue>>* ArgsJsonArray = nullptr;
+                    JsonObj->TryGetArrayField(TEXT("args"), ArgsJsonArray);
 
-                    UE_LOG(LogMCPython, Log, TEXT("Python Command Result: %s"), *PythonCommand.CommandResult);
+                    FString PyArgsStringForCall; // This will be a comma-separated list of Python literals
+                    if (ArgsJsonArray)
+                    {
+                        for (int32 Idx = 0; Idx < ArgsJsonArray->Num(); ++Idx)
+                        {
+                            PyArgsStringForCall += (Idx == 0 ? TEXT("") : TEXT(", ")) + ConvertJsonValueToPythonLiteral((*ArgsJsonArray)[Idx]);
+                        }
+                    }
 
-                    Result = PythonCommand.CommandResult;
-                    ResultMsg = bSuccess ? TEXT("") : TEXT("Failed ExecPythonCommandEx");
+                    // Generate a short script to call the execute_action function from the mcp_unreal_actions module
+                    // The first argument is the target module name, the second is the target function name, and the third is the argument list.
+                    CodeField = FString::Printf(TEXT("import mcp_unreal_actions;print(mcp_unreal_actions.execute_action(\'%s\', \'%s\', [%s]));"),
+                                                *ModuleName, 
+                                                *FunctionName, 
+                                                *PyArgsStringForCall); 
+
+                    UE_LOG(LogMCPython, Log, TEXT("Generated Python Call (via execute_action):\\n%s"), *CodeField);
                 }
                 else
                 {
-                    ResultMsg = TEXT("Failed: PythonScriptPlugin not found");
+                    ResultMsg = TEXT("Failed: Missing 'module' or 'function' field for type 'python_call'");
+                    CodeField = TEXT("import json; print(json.dumps({'success': False, 'message': 'Error: module/function field missing'}))");
                 }
             }
             else
             {
                 ResultMsg = FString::Printf(TEXT("Failed: Unsupported type: %s"), *TypeField);
+                FString EscapedTypeField = TypeField.Replace(TEXT("\'"), TEXT("\\\'"));
+                CodeField = FString::Printf(TEXT("import json; print(json.dumps({'success': False, 'message': 'Unsupported type: %s'}))"), *EscapedTypeField);
+            }
+
+            if (IPythonScriptPlugin::Get())
+            {
+                LogCapture.Clear();
+                GLog->AddOutputDevice(&LogCapture);
+                
+                FPythonCommandEx PythonCommand;
+                PythonCommand.Command = CodeField;
+                PythonCommand.ExecutionMode = EPythonCommandExecutionMode::ExecuteFile;
+
+                bExecSuccess = IPythonScriptPlugin::Get()->ExecPythonCommandEx(PythonCommand);
+                
+                GLog->RemoveOutputDevice(&LogCapture);
+
+                FString CapturedLogs = LogCapture.GetLogs().TrimStartAndEnd();
+                
+                UE_LOG(LogMCPython, Log, TEXT("Python Command Executed. Success: %s. Output Log: %s"),
+                    bExecSuccess ? TEXT("True") : TEXT("False"), *CapturedLogs);
+
+                TSharedPtr<FJsonObject> ResponseToClient = MakeShareable(new FJsonObject);
+                ResponseToClient->SetBoolField(TEXT("success"), bExecSuccess); // Overall success of ExecPythonCommandEx
+                
+                if (!ResultMsg.IsEmpty()) // If there was a pre-execution error message (e.g. bad JSON input from client)
+                {
+                     ResponseToClient->SetStringField(TEXT("message"), ResultMsg);
+                }
+                else if (!bExecSuccess) // Python execution itself failed
+                {
+                    if (!CapturedLogs.IsEmpty())
+                    {
+                        // If execution failed and logs are available, they likely contain the Python error
+                        ResponseToClient->SetStringField(TEXT("message"), TEXT("Python execution failed. See result for details."));
+                    }
+                    else
+                    {
+                        // If execution failed and no logs, it's a more generic failure
+                        ResponseToClient->SetStringField(TEXT("message"), TEXT("Python execution failed with no specific error log."));
+                    }
+                }
+                else // bExecSuccess is true
+                {
+                     ResponseToClient->SetStringField(TEXT("message"), TEXT("Python command executed successfully."));
+                }
+                
+                // The "result" field will contain whatever the Python script printed.
+                ResponseToClient->SetStringField(TEXT("result"), CapturedLogs);
+
+                FString ResultJson;
+                TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultJson);
+                FJsonSerializer::Serialize(ResponseToClient.ToSharedRef(), Writer);
+                Writer->Close();
+
+                FTCHARToUTF8 ResultUtf8(*ResultJson);
+                int32 Sent = 0;
+                ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
+            }
+            else
+            {
+                ResultMsg = TEXT("Failed: PythonScriptPlugin not found");
+                TSharedPtr<FJsonObject> ErrorResponse = MakeShareable(new FJsonObject);
+                ErrorResponse->SetBoolField(TEXT("success"), false);
+                ErrorResponse->SetStringField(TEXT("message"), ResultMsg);
+                FString ErrorJson;
+                TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ErrorJson);
+                FJsonSerializer::Serialize(ErrorResponse.ToSharedRef(), Writer);
+                Writer->Close();
+                FTCHARToUTF8 ResultUtf8(*ErrorJson);
+                int32 Sent = 0;
+                ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
             }
         }
         else
         {
-            ResultMsg = TEXT("Failed: Missing 'type' or 'code' field");
+            ResultMsg = TEXT("Failed: Missing 'type' field in JSON request");
+            TSharedPtr<FJsonObject> ErrorResponse = MakeShareable(new FJsonObject);
+            ErrorResponse->SetBoolField(TEXT("success"), false);
+            ErrorResponse->SetStringField(TEXT("message"), ResultMsg);
+            FString ErrorJson;
+            TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ErrorJson);
+            FJsonSerializer::Serialize(ErrorResponse.ToSharedRef(), Writer);
+            Writer->Close();
+            FTCHARToUTF8 ResultUtf8(*ErrorJson);
+            int32 Sent = 0;
+            ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
         }
     }
     else
     {
-        ResultMsg = TEXT("Failed: JSON parse error");
+        ResultMsg = TEXT("Failed: JSON parse error on received data");
+        TSharedPtr<FJsonObject> ErrorResponse = MakeShareable(new FJsonObject);
+        ErrorResponse->SetBoolField(TEXT("success"), false);
+        ErrorResponse->SetStringField(TEXT("message"), ResultMsg);
+        ErrorResponse->SetStringField(TEXT("raw_data"), Data);
+        FString ErrorJson;
+        TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ErrorJson);
+        FJsonSerializer::Serialize(ErrorResponse.ToSharedRef(), Writer);
+        Writer->Close();
+        FTCHARToUTF8 ResultUtf8(*ErrorJson);
+        int32 Sent = 0;
+        ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
     }
-
-    // Create result JSON
-    TSharedPtr<FJsonObject> ResultObj = MakeShareable(new FJsonObject);
-    ResultObj->SetBoolField(TEXT("success"), bSuccess);
-    ResultObj->SetStringField(TEXT("message"), ResultMsg);
-    
-    if (!LogCapture.GetLogs().IsEmpty())
-    {
-        ResultObj->SetStringField(TEXT("result"), LogCapture.GetLogs());
-    }
-    
-    FString ResultJson;
-    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultJson);
-    FJsonSerializer::Serialize(ResultObj.ToSharedRef(), Writer);
-
-    // Convert to UTF-8 and send
-    FTCHARToUTF8 ResultUtf8(*ResultJson);
-    int32 Sent = 0;
-    ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
 
     ClientSocket->Close();
     ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(ClientSocket);
