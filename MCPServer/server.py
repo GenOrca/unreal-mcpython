@@ -277,8 +277,6 @@ def send_to_unreal(command: dict) -> dict:
         json_str = json.dumps(command, ensure_ascii=False)
         message_bytes = json_str.encode('utf-8')  # Renamed for clarity
 
-        print(f"Sending to Unreal: {json_str}")
-
         with socket.create_connection((HOST, PORT), timeout=6) as sock:  # Increased timeout slightly
             sock.sendall(message_bytes)
             response = b''
@@ -289,12 +287,10 @@ def send_to_unreal(command: dict) -> dict:
                 response += chunk
 
             if not response:
-                print("No response received from Unreal.")
                 return {"success": False, "message": "No response received from Unreal."}
 
             try:
                 response_str = response.decode('utf-8')
-                print(f"Raw response from Unreal: {response_str}")
                 outer_response = json.loads(response_str)
                 if outer_response.get("success") and "result" in outer_response:
                     try:
@@ -305,7 +301,6 @@ def send_to_unreal(command: dict) -> dict:
                             "data": inner_result
                         }
                     except json.JSONDecodeError as je_inner:
-                        print(f"Inner JSON decode error for 'result' field: {je_inner}, raw result: {outer_response['result']}")
                         return {
                             "success": True,
                             "message": outer_response.get("message", "Result field was not valid JSON."),
@@ -315,16 +310,12 @@ def send_to_unreal(command: dict) -> dict:
                     return outer_response
 
             except json.JSONDecodeError as je:
-                print(f"JSON decode error for outer response: {je}, Raw response: {response_str}")
                 return {"success": False, "message": f"Outer JSON decoding error: {je}", "raw_response": response_str}
     except socket.timeout:
-        print(f"Socket timeout communicating with Unreal on {HOST}:{PORT}")
         return {"success": False, "message": f"Socket timeout communicating with Unreal"}
     except ConnectionRefusedError:
-        print(f"Connection refused by Unreal on {HOST}:{PORT}. Is the Unreal MCPython TCP server running?")
         return {"success": False, "message": "Connection refused. Ensure Unreal MCPython TCP server is active."}
     except Exception as e:
-        print(f"Error communicating with Unreal: {e}")
         return {"success": False, "message": f"Connection/Execution error: {e}"}
 
 if __name__ == "__main__":
