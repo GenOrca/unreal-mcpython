@@ -21,15 +21,16 @@ def run_unreal_print(message: str) -> dict:
     return send_to_unreal(command)
 
 @mcp.tool()
-def find_asset_by_name(name: str) -> dict:
+def find_asset_by_query(name : str, asset_type : str) -> dict:
     """
-    Sends a command to Unreal to find an asset by name using a pre-defined function.
+    Sends a command to Unreal to find assets by query conditions (e.g., name, asset_type).
+    Example query: {"name": "Cube", "asset_type": "StaticMesh"}
     """
     command = {
         "type": "python_call",
         "module": UNREAL_PYTHON_MODULE,
-        "function": "ue_find_asset_by_name",
-        "args": [name]
+        "function": "ue_find_asset_by_query",
+        "args": [name, asset_type]  # name and asset_type will be a list
     }
     return send_to_unreal(command)
 
@@ -278,7 +279,7 @@ def send_to_unreal(command: dict) -> dict:
 
         print(f"Sending to Unreal: {json_str}")
 
-        with socket.create_connection((HOST, PORT), timeout=10) as sock:  # Increased timeout slightly
+        with socket.create_connection((HOST, PORT), timeout=6) as sock:  # Increased timeout slightly
             sock.sendall(message_bytes)
             response = b''
             while True:

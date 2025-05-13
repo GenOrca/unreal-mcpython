@@ -208,7 +208,23 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                 GLog->RemoveOutputDevice(&LogCapture);
 
                 FString CapturedLogs = LogCapture.GetLogs().TrimStartAndEnd();
-                
+
+                bool bIsJson = false;
+                if (CapturedLogs.StartsWith(TEXT("{")) || CapturedLogs.StartsWith(TEXT("["))) {
+                    bIsJson = true;
+                }
+                if (!bIsJson) {
+                    TSharedPtr<FJsonObject> ErrorJson = MakeShareable(new FJsonObject);
+                    ErrorJson->SetBoolField(TEXT("success"), false);
+                    ErrorJson->SetStringField(TEXT("message"), TEXT("Python did not return JSON"));
+                    ErrorJson->SetStringField(TEXT("raw_result"), CapturedLogs);
+                    FString WrappedJson;
+                    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&WrappedJson);
+                    FJsonSerializer::Serialize(ErrorJson.ToSharedRef(), Writer);
+                    Writer->Close();
+                    CapturedLogs = WrappedJson;
+                }
+
                 UE_LOG(LogMCPython, Log, TEXT("Python Command Executed. Success: %s. Output Log: %s"),
                     bExecSuccess ? TEXT("True") : TEXT("False"), *CapturedLogs);
 
@@ -246,8 +262,22 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                 Writer->Close();
 
                 FTCHARToUTF8 ResultUtf8(*ResultJson);
-                int32 Sent = 0;
-                ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
+                const uint8* DataPtr = (const uint8*)ResultUtf8.Get();
+                int32 TotalSize = ResultUtf8.Length();
+                int32 TotalSent = 0;
+                while (TotalSent < TotalSize)
+                {
+                    int32 SentNow = 0;
+                    if (!ClientSocket->Send(DataPtr + TotalSent, TotalSize - TotalSent, SentNow))
+                    {
+                        break; // Error occurred
+                    }
+                    if (SentNow == 0)
+                    {
+                        break; // Connection closed or can't send more
+                    }
+                    TotalSent += SentNow;
+                }
             }
             else
             {
@@ -260,8 +290,22 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                 FJsonSerializer::Serialize(ErrorResponse.ToSharedRef(), Writer);
                 Writer->Close();
                 FTCHARToUTF8 ResultUtf8(*ErrorJson);
-                int32 Sent = 0;
-                ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
+                const uint8* DataPtr = (const uint8*)ResultUtf8.Get();
+                int32 TotalSize = ResultUtf8.Length();
+                int32 TotalSent = 0;
+                while (TotalSent < TotalSize)
+                {
+                    int32 SentNow = 0;
+                    if (!ClientSocket->Send(DataPtr + TotalSent, TotalSize - TotalSent, SentNow))
+                    {
+                        break;
+                    }
+                    if (SentNow == 0)
+                    {
+                        break;
+                    }
+                    TotalSent += SentNow;
+                }
             }
         }
         else
@@ -275,8 +319,22 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
             FJsonSerializer::Serialize(ErrorResponse.ToSharedRef(), Writer);
             Writer->Close();
             FTCHARToUTF8 ResultUtf8(*ErrorJson);
-            int32 Sent = 0;
-            ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
+            const uint8* DataPtr = (const uint8*)ResultUtf8.Get();
+            int32 TotalSize = ResultUtf8.Length();
+            int32 TotalSent = 0;
+            while (TotalSent < TotalSize)
+            {
+                int32 SentNow = 0;
+                if (!ClientSocket->Send(DataPtr + TotalSent, TotalSize - TotalSent, SentNow))
+                {
+                    break;
+                }
+                if (SentNow == 0)
+                {
+                    break;
+                }
+                TotalSent += SentNow;
+            }
         }
     }
     else
@@ -291,8 +349,22 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
         FJsonSerializer::Serialize(ErrorResponse.ToSharedRef(), Writer);
         Writer->Close();
         FTCHARToUTF8 ResultUtf8(*ErrorJson);
-        int32 Sent = 0;
-        ClientSocket->Send((uint8*)ResultUtf8.Get(), ResultUtf8.Length(), Sent);
+        const uint8* DataPtr = (const uint8*)ResultUtf8.Get();
+        int32 TotalSize = ResultUtf8.Length();
+        int32 TotalSent = 0;
+        while (TotalSent < TotalSize)
+        {
+            int32 SentNow = 0;
+            if (!ClientSocket->Send(DataPtr + TotalSent, TotalSize - TotalSent, SentNow))
+            {
+                break;
+            }
+            if (SentNow == 0)
+            {
+                break;
+            }
+            TotalSent += SentNow;
+        }
     }
 
     ClientSocket->Close();

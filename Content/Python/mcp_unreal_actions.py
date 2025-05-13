@@ -63,6 +63,23 @@ def ue_find_asset_by_name(name: str) -> str:
     matches = [asset for asset in assets if name in asset]
     return json.dumps(matches)
 
+def ue_find_asset_by_query(name : str, asset_type : str) -> str:
+    """
+    Returns a JSON list of asset paths under '/Game' matching the given query dict.
+    Supported keys: 'name' (substring match), 'asset_type' (Unreal class name, e.g. 'StaticMesh')
+    """
+    assets = unreal.EditorAssetLibrary.list_assets('/Game', recursive=True)
+    matches = []
+    for asset in assets:
+        if name and name not in asset:
+            continue
+        if asset_type:
+            loaded = unreal.EditorAssetLibrary.load_asset(asset)
+            if not loaded or loaded.get_class().get_name() != asset_type:
+                continue
+        matches.append(asset)
+    return json.dumps(matches)
+
 def ue_spawn_actor_from_object(asset_path: str, location: list) -> str:
     """
     Spawns an actor from the specified asset path at the given location.
@@ -560,27 +577,19 @@ def ue_get_actors_in_editor_view_frustum() -> str:
         try:
             editor_subsystem = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
             if not editor_subsystem:
-                unreal.log_error("Failed to get UnrealEditorSubsystem. Function cannot proceed.")
                 return json.dumps({"success": False, "message": "Failed to get UnrealEditorSubsystem."})
             
             camera_info = editor_subsystem.get_level_viewport_camera_info()
             if camera_info:
                 cam_loc, cam_rot = camera_info
-                unreal.log(f"Retrieved from UnrealEditorSubsystem: Loc={cam_loc}, Rot={cam_rot}")
-                # v_fov_degrees remains default as it's not provided by this subsystem method.
-                unreal.log(f"Using default Vertical FOV: {v_fov_degrees} degrees")
             else:
-                unreal.log_error("UnrealEditorSubsystem.get_level_viewport_camera_info() returned None. Function cannot proceed.")
                 return json.dumps({"success": False, "message": "Failed to obtain camera info from UnrealEditorSubsystem."})
 
         except Exception as e:
-            unreal.log_error(f"Could not get camera info from UnrealEditorSubsystem: {e}. Function cannot proceed without this.")
             return json.dumps({"success": False, "message": f"Failed to obtain essential camera info from UnrealEditorSubsystem: {e}"})
 
         if cam_loc is None or cam_rot is None:
             return json.dumps({"success": False, "message": "Failed to obtain essential camera location and rotation from UnrealEditorSubsystem."})
-
-        unreal.log(f"Using camera parameters: FOV={v_fov_degrees} (default), Aspect={aspect_ratio} (default), Near={near_plane} (default), Far={far_plane} (default)")
 
         actor_subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
         all_actors = actor_subsystem.get_all_level_actors()
@@ -643,5 +652,4 @@ def ue_get_actors_in_editor_view_frustum() -> str:
         return json.dumps({"success": True, "visible_actors": visible_actors_details})
 
     except Exception as e:
-        unreal.log_error(f"Exception in ue_get_actors_in_editor_view_frustum: {str(e)}\n{traceback.format_exc()}")
         return json.dumps({"success": False, "message": f"Error in ue_get_actors_in_editor_view_frustum: {str(e)}", "type": type(e).__name__})
