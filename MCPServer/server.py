@@ -266,6 +266,95 @@ def get_actors_in_editor_view_frustum() -> dict:
     }
     return send_to_unreal(command)
 
+# --- Material Editing Tools ---
+
+@mcp.tool()
+def create_material_expression(material_path: str, expression_class_name: str, node_pos_x: int = 0, node_pos_y: int = 0) -> dict:
+    """
+    Sends a command to Unreal to create a new material expression node within the supplied material.
+    Example expression_class_name: "MaterialExpressionTextureCoordinate", "MaterialExpressionScalarParameter"
+    """
+    command = {
+        "type": "python_call",
+        "module": UNREAL_PYTHON_MODULE,
+        "function": "ue_create_material_expression",
+        "args": [material_path, expression_class_name, node_pos_x, node_pos_y]
+    }
+    return send_to_unreal(command)
+
+@mcp.tool()
+def connect_material_expressions(
+    material_path: str, 
+    from_expression_identifier: str, 
+    from_output_name: str, 
+    to_expression_identifier: str, 
+    to_input_name: str,
+    from_expression_class_name: str = None, # Optional: e.g., "MaterialExpressionTextureCoordinate"
+    to_expression_class_name: str = None    # Optional: e.g., "MaterialExpressionPanner"
+) -> dict:
+    """
+    Sends a command to Unreal to create a connection between two material expressions.
+    Identifiers can be the user-defined name (description) of an expression or its class name 
+    (e.g., "MaterialExpressionTextureCoordinate") if the name is not set or not unique.
+    Providing *_expression_class_name can help disambiguate if identifiers are not unique names.
+    Example from_output_name: "", "R", "G", "B", "A" (empty for default first output)
+    Example to_input_name: "Coordinate", "Time" (empty for default first input)
+    """
+    command = {
+        "type": "python_call",
+        "module": UNREAL_PYTHON_MODULE,
+        "function": "ue_connect_material_expressions",
+        "args": [
+            material_path, 
+            from_expression_identifier, 
+            from_output_name, 
+            to_expression_identifier, 
+            to_input_name,
+            from_expression_class_name,
+            to_expression_class_name
+        ]
+    }
+    return send_to_unreal(command)
+
+@mcp.tool()
+def recompile_material(material_path: str) -> dict:
+    """
+    Sends a command to Unreal to trigger a recompile of a material.
+    """
+    command = {
+        "type": "python_call",
+        "module": UNREAL_PYTHON_MODULE,
+        "function": "ue_recompile_material",
+        "args": [material_path]
+    }
+    return send_to_unreal(command)
+
+@mcp.tool()
+def get_material_instance_scalar_parameter_value(instance_path: str, parameter_name: str) -> dict:
+    """
+    Sends a command to Unreal to get the current scalar (float) parameter value from a Material Instance.
+    """
+    command = {
+        "type": "python_call",
+        "module": UNREAL_PYTHON_MODULE,
+        "function": "ue_get_material_instance_scalar_parameter_value",
+        "args": [instance_path, parameter_name]
+    }
+    return send_to_unreal(command)
+
+@mcp.tool()
+def set_material_instance_scalar_parameter_value(instance_path: str, parameter_name: str, value: float) -> dict:
+    """
+    Sends a command to Unreal to set the scalar (float) parameter value for a Material Instance.
+    """
+    command = {
+        "type": "python_call",
+        "module": UNREAL_PYTHON_MODULE,
+        "function": "ue_set_material_instance_scalar_parameter_value",
+        "args": [instance_path, parameter_name, value]
+    }
+    return send_to_unreal(command)
+
 def send_to_unreal(command: dict) -> dict:
     """
     Sends a JSON command to the UnrealMCPython socket server (127.0.0.1:12029) and returns the result.

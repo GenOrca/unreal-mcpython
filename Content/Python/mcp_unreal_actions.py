@@ -653,3 +653,226 @@ def ue_get_actors_in_editor_view_frustum() -> str:
 
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error in ue_get_actors_in_editor_view_frustum: {str(e)}", "type": type(e).__name__})
+
+# --- Helper Functions for Material Editing ---
+
+def _get_material_asset(material_path: str):
+    """Helper to load a material asset."""
+    if not material_path:
+        raise ValueError("Material path cannot be empty.")
+    material = unreal.EditorAssetLibrary.load_asset(material_path)
+    if not material:
+        raise FileNotFoundError(f"Material asset not found at path: {material_path}")
+    if not isinstance(material, unreal.Material):
+        raise TypeError(f"Asset at {material_path} is not a Material, but {type(material).__name__}")
+    return material
+
+def _get_material_instance_asset(instance_path: str):
+    """Helper to load a material instance constant asset."""
+    if not instance_path:
+        raise ValueError("Material instance path cannot be empty.")
+    instance = unreal.EditorAssetLibrary.load_asset(instance_path)
+    if not instance:
+        raise FileNotFoundError(f"Material instance asset not found at path: {instance_path}")
+    if not isinstance(instance, unreal.MaterialInstanceConstant):
+        raise TypeError(f"Asset at {instance_path} is not a MaterialInstanceConstant, but {type(instance).__name__}")
+    return instance
+
+def _get_expression_class(class_name: str):
+    """Helper to get an Unreal MaterialExpression class by name."""
+    try:
+        expression_class = getattr(unreal, class_name)
+        if not issubclass(expression_class, unreal.MaterialExpression):
+            raise TypeError(f"{class_name} is not a MaterialExpression class.")
+        return expression_class
+    except AttributeError:
+        raise ValueError(f"MaterialExpression class '{class_name}' not found in 'unreal' module.")
+
+def _find_material_expression_by_name_or_type(material, expression_identifier: str, expression_class_name: str = None):
+    """
+    Finds a material expression within a material by its description (name) or by its class type if name is not unique or not set.
+    """
+    if not material or not isinstance(material, unreal.Material):
+        raise ValueError("Invalid material provided.")
+
+    all_expressions = unreal.MaterialEditingLibrary.get_material_expressions(material)
+    
+    if expression_class_name:
+        try:
+            target_class = _get_expression_class(expression_class_name)
+        except (ValueError, TypeError):
+            target_class = None
+
+        if target_class:
+            for expr in all_expressions:
+                if isinstance(expr, target_class) and hasattr(expr, 'desc') and expr.desc == expression_identifier:
+                    return expr
+            for expr in all_expressions:
+                if isinstance(expr, target_class):
+                    if expression_identifier == expression_class_name or expression_identifier == target_class.__name__:
+                         return expr
+
+    for expr in all_expressions:
+        if hasattr(expr, 'desc') and expr.desc == expression_identifier:
+            return expr
+        if expr.__class__.__name__ == expression_identifier:
+            return expr
+
+    raise ValueError(f"MaterialExpression identified by '{expression_identifier}' (class: {expression_class_name or 'any'}) not found in material '{material.get_name()}'.")
+
+# --- Material Editing Actions ---
+
+def ue_create_material_expression(material_path: str, expression_class_name: str, node_pos_x: int = 0, node_pos_y: int = 0) -> str:
+    """
+    Creates a new material expression node within the supplied material.
+    """
+    transaction_description = "MCP: Create Material Expression"
+    try:
+        material = _get_material_asset(material_path)
+        expression_class = _get_expression_class(expression_class_name)
+
+        with unreal.ScopedEditorTransaction(transaction_description) as trans:
+            new_expression = unreal.MaterialEditingLibrary.create_material_expression(
+                material, expression_class, node_pos_x, node_pos_y
+            )
+            if not new_expression:
+                trans.cancel()
+                return json.dumps({
+                    "success": False,
+                    "message": f"Failed to create MaterialExpression '{expression_class_name}' in '{material_path}'."
+                })
+            
+            unreal.MaterialEditingLibrary.recompile_material(material)
+            unreal.EditorAssetLibrary.save_loaded_asset(material)
+            
+            return json.dumps({
+                "success": True,
+                "message": f"Successfully created MaterialExpression '{expression_class_name}' in '{material_path}'.",
+                "expression_name": new_expression.get_name(),
+                "expression_class": new_expression.__class__.__name__
+            })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "message": f"Error creating material expression: {str(e)}",
+            "traceback": traceback.format_exc()
+        })
+
+def ue_connect_material_expressions(
+    material_path: str, 
+    from_expression_identifier: str, 
+    from_output_name: str, 
+    to_expression_identifier: str, 
+    to_input_name: str,
+    from_expression_class_name: str = None,
+    to_expression_class_name: str = None
+) -> str:
+    """
+    Creates a connection between two material expressions.
+    """
+    transaction_description = "MCP: Connect Material Expressions"
+    try:
+        material = _get_material_asset(material_path)
+        
+        from_expression = _find_material_expression_by_name_or_type(material, from_expression_identifier, from_expression_class_name)
+        to_expression = _find_material_expression_by_name_or_type(material, to_expression_identifier, to_expression_class_name)
+
+        with unreal.ScopedEditorTransaction(transaction_description) as trans:
+            success = unreal.MaterialEditingLibrary.connect_material_expressions(
+                from_expression, from_output_name, to_expression, to_input_name
+            )
+            if not success:
+                trans.cancel()
+                return json.dumps({
+                    "success": False,
+                    "message": f"Failed to connect '{from_expression_identifier}({from_output_name})' to '{to_expression_identifier}({to_input_name})' in '{material_path}'."
+                })
+
+            unreal.MaterialEditingLibrary.recompile_material(material)
+            unreal.EditorAssetLibrary.save_loaded_asset(material)
+
+            return json.dumps({
+                "success": True,
+                "message": f"Successfully connected '{from_expression_identifier}({from_output_name})' to '{to_expression_identifier}({to_input_name})' in '{material_path}'."
+            })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "message": f"Error connecting material expressions: {str(e)}",
+            "traceback": traceback.format_exc()
+        })
+
+def ue_recompile_material(material_path: str) -> str:
+    """
+    Triggers a recompile of a material.
+    """
+    try:
+        material = _get_material_asset(material_path)
+        unreal.MaterialEditingLibrary.recompile_material(material)
+        return json.dumps({
+            "success": True,
+            "message": f"Successfully recompiled material '{material_path}'."
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "message": f"Error recompiling material '{material_path}': {str(e)}",
+            "traceback": traceback.format_exc()
+        })
+
+def ue_get_material_instance_scalar_parameter_value(instance_path: str, parameter_name: str) -> str:
+    """
+    Gets the current scalar (float) parameter value from a Material Instance.
+    """
+    try:
+        instance = _get_material_instance_asset(instance_path)
+        
+        ue_parameter_name = unreal.Name(parameter_name)
+        
+        value = unreal.MaterialEditingLibrary.get_material_instance_scalar_parameter_value(instance, ue_parameter_name)
+        
+        return json.dumps({
+            "success": True,
+            "parameter_name": parameter_name,
+            "value": value,
+            "instance_path": instance_path
+        })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "message": f"Error getting scalar parameter '{parameter_name}' from '{instance_path}': {str(e)}",
+            "traceback": traceback.format_exc()
+        })
+
+def ue_set_material_instance_scalar_parameter_value(instance_path: str, parameter_name: str, value: float) -> str:
+    """
+    Sets the scalar (float) parameter value for a Material Instance.
+    """
+    transaction_description = "MCP: Set Material Instance Scalar Parameter"
+    try:
+        instance = _get_material_instance_asset(instance_path)
+        ue_parameter_name = unreal.Name(parameter_name)
+
+        with unreal.ScopedEditorTransaction(transaction_description) as trans:
+            success = unreal.MaterialEditingLibrary.set_material_instance_scalar_parameter_value(
+                instance, ue_parameter_name, float(value)
+            )
+            if not success:
+                pass
+
+            unreal.MaterialEditingLibrary.update_material_instance(instance)
+            unreal.EditorAssetLibrary.save_loaded_asset(instance)
+
+            return json.dumps({
+                "success": True,
+                "message": f"Successfully set scalar parameter '{parameter_name}' to {value} for instance '{instance_path}'.",
+                "instance_path": instance_path,
+                "parameter_name": parameter_name,
+                "new_value": value
+            })
+    except Exception as e:
+        return json.dumps({
+            "success": False,
+            "message": f"Error setting scalar parameter '{parameter_name}' for '{instance_path}': {str(e)}",
+            "traceback": traceback.format_exc()
+        })
