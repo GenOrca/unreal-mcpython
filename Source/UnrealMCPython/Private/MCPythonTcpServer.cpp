@@ -160,21 +160,24 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                 if (JsonObj->TryGetStringField(TEXT("module"), ModuleName) &&
                     JsonObj->TryGetStringField(TEXT("function"), FunctionName))
                 {
-                    const TArray<TSharedPtr<FJsonValue>>* ArgsJsonArray = nullptr;
-                    JsonObj->TryGetArrayField(TEXT("args"), ArgsJsonArray);
+                    const TSharedPtr<FJsonObject>* ArgsJsonObjectPtr = nullptr; // Changed from TArray<TSharedPtr<FJsonValue>>*
+                    JsonObj->TryGetObjectField(TEXT("args"), ArgsJsonObjectPtr); // Changed from TryGetArrayField
 
-                    FString PyArgsStringForCall; // This will be a comma-separated list of Python literals
-                    if (ArgsJsonArray)
+                    FString PyArgsStringForCall;
+                    if (ArgsJsonObjectPtr && ArgsJsonObjectPtr->IsValid()) // Check if the pointer and the object it points to are valid
                     {
-                        for (int32 Idx = 0; Idx < ArgsJsonArray->Num(); ++Idx)
-                        {
-                            PyArgsStringForCall += (Idx == 0 ? TEXT("") : TEXT(", ")) + ConvertJsonValueToPythonLiteral((*ArgsJsonArray)[Idx]);
-                        }
+                        // Wrap the FJsonObject in an FJsonValueObject to pass to ConvertJsonValueToPythonLiteral
+                        TSharedPtr<FJsonValueObject> ArgsJsonValue = MakeShareable(new FJsonValueObject(*ArgsJsonObjectPtr));
+                        PyArgsStringForCall = ConvertJsonValueToPythonLiteral(ArgsJsonValue);
+                    }
+                    else
+                    {
+                        PyArgsStringForCall = TEXT("{}"); // Default to an empty Python dictionary string if "args" is not a valid object or is missing
                     }
 
                     // Generate a short script to call the execute_action function from the mcp_unreal_actions module
-                    // The first argument is the target module name, the second is the target function name, and the third is the argument list.
-                    CodeField = FString::Printf(TEXT("import mcp_unreal_actions;print(mcp_unreal_actions.execute_action(\'%s\', \'%s\', [%s]));"),
+                    // The first argument is the target module name, the second is the target function name, and the third is the argument dictionary.
+                    CodeField = FString::Printf(TEXT("import mcp_unreal_actions;print(mcp_unreal_actions.execute_action(\'%s\', \'%s\', %s));"), // Removed [] around %s
                                                 *ModuleName, 
                                                 *FunctionName, 
                                                 *PyArgsStringForCall); 
