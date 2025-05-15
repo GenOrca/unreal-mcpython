@@ -58,16 +58,13 @@ def ue_spawn_actor_from_object(asset_path: str = None, location: list = None) ->
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during spawn: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
 
-def ue_duplicate_selected_actors_with_offset(offset: list = None) -> str:
+def ue_duplicate_selected_actors_with_offset(offset: list) -> str:
     """
     Duplicates all selected actors in the editor and applies a position offset to each duplicate.
 
     :param offset: [x, y, z] offset to apply to each duplicated actor.
     :return: JSON string indicating success or failure and details of duplicated actors.
     """
-    if offset is None:
-        return json.dumps({"success": False, "message": "Required parameter 'offset' is missing."})
-
     if len(offset) != 3:
         return json.dumps({"success": False, "message": "Invalid offset format. Expected list of 3 floats."})
 
@@ -77,27 +74,20 @@ def ue_duplicate_selected_actors_with_offset(offset: list = None) -> str:
         if not selected_actors:
             return json.dumps({"success": False, "message": "No actors selected."})
 
-        duplicated_actors_labels = []
-        with unreal.ScopedEditorTransaction("MCP: Duplicate Selected Actors with Offset") as trans:
-            for actor in selected_actors:
-                offset_vector = unreal.Vector(float(offset[0]), float(offset[1]), float(offset[2]))
-                new_actors = unreal.EditorLevelLibrary.duplicate_actors([actor])
-                if new_actors and len(new_actors) > 0:
-                    duplicated_actor = new_actors[0]
-                    original_location = duplicated_actor.get_actor_location()
-                    new_location = original_location + offset_vector
-                    duplicated_actor.set_actor_location(new_location, False, False) # bSweep, bTeleport
-                    duplicated_actors_labels.append(duplicated_actor.get_actor_label())
-                else:
-                    unreal.log_warning(f"Failed to duplicate actor: {actor.get_actor_label()}")
+        duplicated_actors = []
+        for actor in selected_actors:
+            offset_vector = unreal.Vector(float(offset[0]), float(offset[1]), float(offset[2]))
+            duplicated_actor = subsystem.duplicate_actor(actor, offset=offset_vector)
+            if duplicated_actor:
+                duplicated_actors.append(duplicated_actor.get_actor_label())
 
         return json.dumps({
             "success": True,
-            "message": f"Duplicated {len(duplicated_actors_labels)} actors with offset {offset}.",
-            "duplicated_actors": duplicated_actors_labels
+            "message": f"Duplicated {len(duplicated_actors)} actors with offset {offset}.",
+            "duplicated_actors": duplicated_actors
         })
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error during duplication: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
+        return json.dumps({"success": False, "message": f"Error during duplication: {e}"})
 
 def ue_select_all_actors() -> str:
     """
@@ -105,10 +95,10 @@ def ue_select_all_actors() -> str:
     """
     try:
         subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-        subsystem.select_all_level_actors()
+        subsystem.select_all(unreal.EditorLevelLibrary.get_editor_world())
         return json.dumps({"success": True, "message": "All actors selected."})
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error during selection: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
+        return json.dumps({"success": False, "message": f"Error during selection: {e}"})
 
 def ue_invert_actor_selection() -> str:
     """
@@ -116,37 +106,38 @@ def ue_invert_actor_selection() -> str:
     """
     try:
         subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-        subsystem.invert_selected_level_actors()
+        subsystem.invert_selection(unreal.EditorLevelLibrary.get_editor_world())
         return json.dumps({"success": True, "message": "Actor selection inverted."})
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error during selection inversion: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
+        return json.dumps({"success": False, "message": f"Error during selection inversion: {e}"})
 
-def ue_delete_actor_by_name(actor_name: str = None) -> str:
+def ue_delete_actor_by_label(actor_label: str) -> str:
     """
-    Deletes an actor with the specified name (label) from the current level.
-    Wrapped in a ScopedEditorTransaction.
-    """
-    if actor_name is None:
-        return json.dumps({"success": False, "message": "Required parameter 'actor_name' is missing."})
+    Deletes an actor with the specified name from the current level.
 
-    transaction_description = f"MCP: Delete Actor by Name ({actor_name})"
+    :param actor_label: Name of the actor to delete.
+    :return: JSON string indicating success or failure.
+    """
     try:
-        actor_to_delete = _get_actor_by_label(actor_name)
-        if not actor_to_delete:
-            return json.dumps({"success": False, "message": f"No actor found with name (label): {actor_name}"})
+        subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
+        all_actors = subsystem.get_all_level_actors()
+        deleted_actors = []
 
-        with unreal.ScopedEditorTransaction(transaction_description) as trans:
-            subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
-            if subsystem.destroy_actor(actor_to_delete):
-                return json.dumps({
-                    "success": True,
-                    "message": f"Actor '{actor_name}' deleted.",
-                    "deleted_actor_label": actor_name
-                })
-            else:
-                return json.dumps({"success": False, "message": f"Failed to delete actor '{actor_name}' using subsystem.destroy_actor."})
+        for actor in all_actors:
+            if actor.get_actor_label() == actor_label:
+                if subsystem.destroy_actor(actor):
+                    deleted_actors.append(actor_label)
+
+        if deleted_actors:
+            return json.dumps({
+                "success": True,
+                "message": f"Deleted actors: {deleted_actors}",
+                "deleted_actors": deleted_actors
+            })
+        else:
+            return json.dumps({"success": False, "message": f"No actor found with name: {actor_label}"})
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error during actor deletion: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
+        return json.dumps({"success": False, "message": f"Error during actor deletion: {e}"})
 
 def ue_list_all_actors_with_locations() -> str:
     """
@@ -453,54 +444,50 @@ def ue_spawn_actor_on_surface_with_raycast(
 def ue_get_actors_in_editor_view_frustum() -> str:
     """
     Retrieves a list of actors that are potentially visible within the active editor viewport's frustum.
-    This is an approximation.
+
+    This function performs an *approximate* frustum check using a sphere-cone intersection test:
+    - Actors are represented by their bounding spheres.
+    - The view frustum is approximated as a cone based on the camera's vertical FOV.
+    - Camera location and rotation are fetched using `unreal.UnrealEditorSubsystem().get_level_viewport_camera_info()`.
+    - FOV, Aspect ratio, near plane, and far plane are based on defaults as they cannot be reliably queried
+      through the subsystem directly. This means actors visible in the horizontal periphery of a wide viewport
+      or very close/far might be misclassified.
+
+    :return: JSON string containing a list of potentially visible actor details or an error message.
     """
     try:
         cam_loc = None
         cam_rot = None
-        v_fov_degrees = 90.0
-        
-        editor_subsystem = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
-        if not editor_subsystem:
-            return json.dumps({"success": False, "message": "Failed to get UnrealEditorSubsystem."})
-        
-        if hasattr(editor_subsystem, 'get_level_viewport_camera_info'):
-            cam_loc, cam_rot = editor_subsystem.get_level_viewport_camera_info()
-        else:
-            try:
-                level_editor_subsystem = unreal.get_editor_subsystem(unreal.LevelEditor)
-                if level_editor_subsystem:
-                     cam_loc, cam_rot, v_fov_degrees_actual = level_editor_subsystem.get_level_viewport_camera_info()
-                else:
-                    return json.dumps({"success": False, "message": "Failed to get LevelEditor subsystem for camera info."})
+        # Default values. FOV is not returned by UnrealEditorSubsystem.get_level_viewport_camera_info()
+        v_fov_degrees = 60.0      # Default Vertical FOV
+        aspect_ratio = 16.0 / 9.0 # Default aspect ratio
+        near_plane = 10.0         # Default near clip plane
+        far_plane = 100000.0      # Default far clip plane
 
-            except Exception as cam_ex:
-                 return json.dumps({"success": False, "message": f"Could not get camera info via LevelEditor: {str(cam_ex)}"})
+        # Get core camera info using UnrealEditorSubsystem
+        try:
+            editor_subsystem = unreal.get_editor_subsystem(unreal.UnrealEditorSubsystem)
+            if not editor_subsystem:
+                return json.dumps({"success": False, "message": "Failed to get UnrealEditorSubsystem."})
+            
+            camera_info = editor_subsystem.get_level_viewport_camera_info()
+            if camera_info:
+                cam_loc, cam_rot = camera_info
+            else:
+                return json.dumps({"success": False, "message": "Failed to obtain camera info from UnrealEditorSubsystem."})
+
+        except Exception as e:
+            return json.dumps({"success": False, "message": f"Failed to obtain essential camera info from UnrealEditorSubsystem: {e}"})
 
         if cam_loc is None or cam_rot is None:
-            return json.dumps({"success": False, "message": "Failed to obtain camera location and rotation."})
+            return json.dumps({"success": False, "message": "Failed to obtain essential camera location and rotation from UnrealEditorSubsystem."})
 
         actor_subsystem = unreal.get_editor_subsystem(unreal.EditorActorSubsystem)
         all_actors = actor_subsystem.get_all_level_actors()
         visible_actors_details = []
 
         cam_forward_vec = cam_rot.get_forward_vector()
-        cam_right_vec = cam_rot.get_right_vector()
-        cam_up_vec = cam_rot.get_up_vector()
-
-        h_fov_degrees = v_fov_degrees * (16.0/9.0)
-        
-        near_plane = 10.0
-        far_plane = 100000.0
-
-        planes = []
-        planes.append(unreal.Plane(cam_loc + cam_forward_vec * near_plane, cam_forward_vec))
-        planes.append(unreal.Plane(cam_loc + cam_forward_vec * far_plane, -cam_forward_vec))
-        
-        half_v_fov_rad = unreal.MathLibrary.degrees_to_radians(v_fov_degrees / 2.0)
-        half_h_fov_rad = unreal.MathLibrary.degrees_to_radians(h_fov_degrees / 2.0)
-
-        v_fov_rad_half = half_v_fov_rad
+        v_fov_rad = unreal.MathLibrary.degrees_to_radians(v_fov_degrees)
 
         for actor in all_actors:
             if not actor: continue
@@ -511,25 +498,31 @@ def ue_get_actors_in_editor_view_frustum() -> str:
             vec_to_actor_center = bounds_origin - cam_loc
             dist_to_actor_center = vec_to_actor_center.length()
 
-            if dist_to_actor_center + actor_bounding_radius < near_plane or \
-               dist_to_actor_center - actor_bounding_radius > far_plane:
+            sphere_closest_to_cam = dist_to_actor_center - actor_bounding_radius
+            sphere_farthest_from_cam = dist_to_actor_center + actor_bounding_radius
+
+            if sphere_farthest_from_cam < near_plane or sphere_closest_to_cam > far_plane:
                 continue
 
-            if dist_to_actor_center > 0:
-                vec_to_actor_center_normalized = vec_to_actor_center.get_safe_normal()
+            if dist_to_actor_center <= actor_bounding_radius:
+                pass
+            elif dist_to_actor_center > 0:
+                vec_to_actor_center_normalized = vec_to_actor_center.normal()
                 dot_product = cam_forward_vec.dot(vec_to_actor_center_normalized)
-                
-                angle_rad = unreal.MathLibrary.acos(dot_product)
-                
-                angular_radius_of_sphere_rad = 0
+                dot_product_clamped = unreal.MathLibrary.clamp(dot_product, -1.0, 1.0)
+                angle_to_actor_center_rad = unreal.MathLibrary.acos(dot_product_clamped)
+
                 if dist_to_actor_center > actor_bounding_radius:
-                    angular_radius_of_sphere_rad = unreal.MathLibrary.asin(actor_bounding_radius / dist_to_actor_center)
+                    asin_arg = unreal.MathLibrary.clamp(actor_bounding_radius / dist_to_actor_center, -1.0, 1.0)
+                    angular_radius_of_sphere_rad = unreal.MathLibrary.asin(asin_arg)
                 else:
                     angular_radius_of_sphere_rad = unreal.MathLibrary.PI
 
-                if angle_rad > v_fov_rad_half + angular_radius_of_sphere_rad:
+                if angle_to_actor_center_rad > (v_fov_rad / 2.0) + angular_radius_of_sphere_rad:
                     continue
-            
+            else:
+                pass
+
             loc = actor.get_actor_location()
             rot = actor.get_actor_rotation()
             actor_details_dict = {
@@ -541,18 +534,13 @@ def ue_get_actors_in_editor_view_frustum() -> str:
                 "world_bounds_extent": [bounds_extent.x, bounds_extent.y, bounds_extent.z]
             }
             if isinstance(actor, unreal.StaticMeshActor):
-                sm_component = None
-                if hasattr(actor, 'get_static_mesh_component'):
-                    sm_component = actor.get_static_mesh_component()
-                elif hasattr(actor, 'static_mesh_component'):
-                    sm_component = actor.static_mesh_component
-                
+                sm_component = actor.static_mesh_component
                 if sm_component and sm_component.static_mesh:
                     actor_details_dict["static_mesh_asset_path"] = sm_component.static_mesh.get_path_name()
             
             visible_actors_details.append(actor_details_dict)
 
-        return json.dumps({"success": True, "visible_actors_estimate": visible_actors_details, "message": "Frustum culling is an estimate."})
+        return json.dumps({"success": True, "visible_actors": visible_actors_details})
 
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error in ue_get_actors_in_editor_view_frustum: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
+        return json.dumps({"success": False, "message": f"Error in ue_get_actors_in_editor_view_frustum: {str(e)}", "type": type(e).__name__})

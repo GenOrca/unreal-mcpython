@@ -46,17 +46,14 @@ def _get_expression_class(class_name: str):
     except AttributeError:
         raise ValueError(f"MaterialExpression class like '{class_name}' or '{full_class_name}' not found in 'unreal' module.")
 
-def _find_material_expression_by_name_or_type(material, expression_identifier: str, expression_class_name: str = None):
+def _find_material_expression_by_name_or_type(material: unreal.Material, expression_identifier: str, expression_class_name: str = None):
     """
     Finds a material expression within a material by its description (name) or by its class type.
-    If expression_identifier is a name (desc), it's prioritized.
-    If expression_identifier is a class name and expression_class_name is not set, it tries to find by type.
     """
+    
     if not material or not isinstance(material, unreal.Material):
         raise ValueError("Invalid material provided.")
 
-    all_expressions = unreal.MaterialEditingLibrary.get_material_expressions(material)
-    
     target_class = None
     if expression_class_name:
         try:
@@ -64,29 +61,25 @@ def _find_material_expression_by_name_or_type(material, expression_identifier: s
         except (ValueError, TypeError):
             pass 
 
-    for expr in all_expressions:
-        if hasattr(expr, 'desc') and expr.desc == expression_identifier:
-            if target_class and not isinstance(expr, target_class):
-                continue 
-            return expr
-
-    if target_class:
-        for expr in all_expressions:
-            if isinstance(expr, target_class):
+    it = unreal.ObjectIterator()
+    for x in it:
+        if isinstance(x, unreal.MaterialExpression) and x.get_path_name().startswith(material.get_path_name()):
+            if hasattr(x, 'desc') and x.desc == expression_identifier:
+                if target_class and not isinstance(x, target_class):
+                    continue 
+                return x
+            
+            if target_class and isinstance(x, target_class):
                 if expression_identifier == expression_class_name or expression_identifier == target_class.__name__:
-                    return expr 
+                    return x
 
-    if not target_class: 
-        try:
-            potential_class_as_identifier = _get_expression_class(expression_identifier)
-            for expr in all_expressions:
-                if isinstance(expr, potential_class_as_identifier):
-                    return expr 
-        except (ValueError, TypeError):
-            pass 
+            if expression_identifier == x.get_name():
+                if target_class and not isinstance(x, target_class):
+                    continue 
+                return x
 
-    raise ValueError(f"MaterialExpression identified by '{expression_identifier}' (intended class: {expression_class_name or 'any'}) not found in material '{material.get_name()}'. Ensure 'desc' property is set for unique identification or provide correct class name.")
-
+    raise ValueError(f"MaterialExpression identified by '{expression_identifier}' (intended class: {expression_class_name or 'any'}) not found in material '{material.get_path_name()}'.")
+    
 # --- Material Editing Actions ---
 
 def ue_create_material_expression(material_path: str = None, expression_class_name: str = None, node_pos_x: int = 0, node_pos_y: int = 0) -> str:
@@ -292,11 +285,7 @@ def ue_set_material_instance_scalar_parameter_value(instance_path: str = None, p
         ue_parameter_name = unreal.Name(parameter_name)
 
         with unreal.ScopedEditorTransaction(transaction_description) as trans:
-            _value_ignored, found = instance.get_scalar_parameter_value(ue_parameter_name)
-            if not found:
-                raise ValueError(f"Scalar parameter '{parameter_name}' does not exist on material instance '{instance_path}'.")
-
-            instance.set_scalar_parameter_value(ue_parameter_name, float(value))
+            unreal.MaterialEditingLibrary.set_material_instance_scalar_parameter_value(instance, ue_parameter_name, float(value))
             unreal.MaterialEditingLibrary.update_material_instance(instance) 
             unreal.EditorAssetLibrary.save_loaded_asset(instance)
 
@@ -323,9 +312,9 @@ def ue_get_material_instance_vector_parameter_value(instance_path: str = None, p
     try:
         instance = _get_material_instance_asset(instance_path)
         ue_parameter_name = unreal.Name(parameter_name)
-        param_value, found = instance.get_vector_parameter_value(ue_parameter_name)
-        if not found:
-            return json.dumps({"success": False, "message": f"Vector parameter '{parameter_name}' not found.", "value": None})
+        
+        param_value = unreal.MaterialEditingLibrary.get_material_instance_vector_parameter_value(instance, ue_parameter_name)
+        
         value_list = [param_value.r, param_value.g, param_value.b, param_value.a]
         return json.dumps({"success": True, "parameter_name": parameter_name, "value": value_list, "instance_path": instance_path})
     except Exception as e:
@@ -347,13 +336,9 @@ def ue_set_material_instance_vector_parameter_value(instance_path: str = None, p
         if not isinstance(value, list) or len(value) != 4:
             raise ValueError("Vector value must be a list of 4 floats [R, G, B, A].")
         
-        _v, found = instance.get_vector_parameter_value(ue_parameter_name)
-        if not found:
-            raise ValueError(f"Vector parameter '{parameter_name}' does not exist on material instance '{instance_path}'.")
-
         with unreal.ScopedEditorTransaction(transaction_description) as trans:
             linear_color_value = unreal.LinearColor(float(value[0]), float(value[1]), float(value[2]), float(value[3]))
-            instance.set_vector_parameter_value(ue_parameter_name, linear_color_value)
+            unreal.MaterialEditingLibrary.set_material_instance_vector_parameter_value(instance, ue_parameter_name, linear_color_value)
             unreal.MaterialEditingLibrary.update_material_instance(instance)
             unreal.EditorAssetLibrary.save_loaded_asset(instance)
             return json.dumps({"success": True, "message": f"Vector parameter '{parameter_name}' set.", "new_value": value})
@@ -369,46 +354,100 @@ def ue_get_material_instance_texture_parameter_value(instance_path: str = None, 
     try:
         instance = _get_material_instance_asset(instance_path)
         ue_parameter_name = unreal.Name(parameter_name)
-        param_value, found = instance.get_texture_parameter_value(ue_parameter_name)
-        if not found:
-            return json.dumps({"success": False, "message": f"Texture parameter '{parameter_name}' not found.", "value": None})
+        
+        param_value = unreal.MaterialEditingLibrary.get_material_instance_texture_parameter_value(instance, ue_parameter_name)
+        
         texture_path = param_value.get_path_name() if param_value else None
         return json.dumps({"success": True, "parameter_name": parameter_name, "value": texture_path, "instance_path": instance_path})
     except Exception as e:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
+def ue_get_material_instance_texture_parameter_names(instance_path):
+    """
+    Gets all texture parameter names for a given material instance
+    """
+    try:
+        instance = unreal.load_asset(instance_path)
+        texture_param_names = unreal.MaterialEditingLibrary.get_texture_parameter_names(instance)
+        return list(texture_param_names)
+    except Exception as e:
+        return []
+    
 def ue_set_material_instance_texture_parameter_value(instance_path: str = None, parameter_name: str = None, texture_path: Optional[str] = None) -> str:
     """Sets a texture parameter on a Material Instance. Provide texture asset path. Returns JSON string."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
+    
+    try:
+        instance = unreal.load_asset(instance_path)
+        available_params = unreal.MaterialEditingLibrary.get_texture_parameter_names(instance)
+        available_params = [str(name) for name in available_params]
+    except Exception as e:
+        available_params = []
+    
     if parameter_name is None:
-        return json.dumps({"success": False, "message": "Required parameter 'parameter_name' is missing."})
-    # texture_path can be None to clear the texture, so no check for texture_path is None here.
-
-    transaction_description = "MCP: Set Material Instance Texture Parameter"
+        return json.dumps({
+            "success": False, 
+            "message": "Required parameter 'parameter_name' is missing.", 
+            "available_parameters": available_params
+        })
+    
+    if parameter_name not in available_params:
+        return json.dumps({
+            "success": False, 
+            "message": f"Texture parameter '{parameter_name}' does not exist.", 
+            "available_parameters": available_params
+        })
+    
     try:
         instance = _get_material_instance_asset(instance_path)
         ue_parameter_name = unreal.Name(parameter_name)
-
-        _v, found = instance.get_texture_parameter_value(ue_parameter_name)
-        if not found:
-            raise ValueError(f"Texture parameter '{parameter_name}' does not exist on material instance '{instance_path}'.")
         
         texture_asset = None
         if texture_path: 
             texture_asset = unreal.EditorAssetLibrary.load_asset(texture_path)
             if not texture_asset:
-                raise FileNotFoundError(f"Texture asset not found at path: {texture_path}")
+                return json.dumps({
+                    "success": False, 
+                    "message": f"Texture asset not found at path: {texture_path}",
+                    "available_parameters": available_params
+                })
             if not isinstance(texture_asset, unreal.Texture):
-                raise TypeError(f"Asset at {texture_path} is not a Texture, but {type(texture_asset).__name__}")
+                return json.dumps({
+                    "success": False, 
+                    "message": f"Asset at {texture_path} is not a Texture, but {type(texture_asset).__name__}",
+                    "available_parameters": available_params
+                })
 
-        with unreal.ScopedEditorTransaction(transaction_description) as trans:
-            instance.set_texture_parameter_value(ue_parameter_name, texture_asset)
+        with unreal.ScopedEditorTransaction("MCP: Set Material Instance Texture Parameter") as trans:
+            unreal.MaterialEditingLibrary.set_material_instance_texture_parameter_value(instance, ue_parameter_name, texture_asset)
             unreal.MaterialEditingLibrary.update_material_instance(instance)
             unreal.EditorAssetLibrary.save_loaded_asset(instance)
-            return json.dumps({"success": True, "message": f"Texture parameter '{parameter_name}' set.", "new_value": texture_path})
+            return json.dumps({
+                "success": True, 
+                "message": f"Texture parameter '{parameter_name}' set.", 
+                "new_value": texture_path,
+                "available_parameters": available_params
+            })
     except Exception as e:
-        return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
+        return json.dumps({
+            "success": False, 
+            "message": str(e), 
+            "traceback": traceback.format_exc(),
+            "available_parameters": available_params
+        })
+
+def ue_get_material_instance_static_switch_parameters(instance_path):
+    """
+    Gets all available static switch parameter names for a material instance
+    """
+    try:
+        instance = _get_material_instance_asset(instance_path)
+        param_names = unreal.MaterialEditingLibrary.get_static_switch_parameter_names(instance)
+        return [str(name) for name in param_names]
+    except Exception as e:
+        print(f"Error getting static switch parameters: {e}")
+        return []
 
 def ue_get_material_instance_static_switch_parameter_value(instance_path: str = None, parameter_name: str = None) -> str:
     """Gets a static switch parameter from a Material Instance. Returns JSON string."""
@@ -416,15 +455,36 @@ def ue_get_material_instance_static_switch_parameter_value(instance_path: str = 
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
     if parameter_name is None:
         return json.dumps({"success": False, "message": "Required parameter 'parameter_name' is missing."})
+    
+    available_params = ue_get_material_instance_static_switch_parameters(instance_path)
+    
+    if parameter_name not in available_params:
+        return json.dumps({
+            "success": False, 
+            "message": f"Static switch parameter '{parameter_name}' not found.", 
+            "available_parameters": available_params
+        })
+    
     try:
         instance = _get_material_instance_asset(instance_path)
         ue_parameter_name = unreal.Name(parameter_name)
-        param_value, found = unreal.MaterialEditingLibrary.get_material_instance_static_switch_parameter_value(instance, ue_parameter_name)
-        if not found:
-            return json.dumps({"success": False, "message": f"Static switch parameter '{parameter_name}' not found.", "value": None})
-        return json.dumps({"success": True, "parameter_name": parameter_name, "value": param_value, "instance_path": instance_path})
+        
+        param_value = unreal.MaterialEditingLibrary.get_material_instance_static_switch_parameter_value(instance, ue_parameter_name)
+        
+        return json.dumps({
+            "success": True, 
+            "parameter_name": parameter_name, 
+            "value": param_value, 
+            "instance_path": instance_path,
+            "available_parameters": available_params
+        })
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error getting static switch parameter '{parameter_name}': {str(e)}", "traceback": traceback.format_exc()})
+        return json.dumps({
+            "success": False, 
+            "message": f"Error getting static switch parameter '{parameter_name}': {str(e)}", 
+            "traceback": traceback.format_exc(),
+            "available_parameters": available_params
+        })
 
 def ue_set_material_instance_static_switch_parameter_value(instance_path: str = None, parameter_name: str = None, value: bool = None) -> str:
     """Sets a static switch parameter on a Material Instance. Returns JSON string."""
@@ -435,35 +495,35 @@ def ue_set_material_instance_static_switch_parameter_value(instance_path: str = 
     if value is None:
         return json.dumps({"success": False, "message": "Required parameter 'value' is missing."})
 
+    available_params = ue_get_material_instance_static_switch_parameters(instance_path)
+    
+    if parameter_name not in available_params:
+        return json.dumps({
+            "success": False, 
+            "message": f"Static switch parameter '{parameter_name}' not found.", 
+            "available_parameters": available_params
+        })
+
     transaction_description = "MCP: Set Material Instance Static Switch Parameter"
     try:
         instance = _get_material_instance_asset(instance_path)
         ue_parameter_name = unreal.Name(parameter_name)
         
-        static_params_editor = instance.get_editor_property('static_parameters')
-        found_param_info = None
-        if static_params_editor:
-            for switch_param_group in static_params_editor.static_switch_parameters:
-                if switch_param_group.parameter_info.name == ue_parameter_name:
-                    found_param_info = switch_param_group
-                    break
-        
-        if not found_param_info:
-            with unreal.ScopedEditorTransaction(transaction_description) as trans:
-                success = unreal.MaterialEditingLibrary.set_material_instance_static_switch_parameter_value(instance, ue_parameter_name, bool(value), unreal.Guid()) # Using a default/empty Guid
-                if not success:
-                    raise ValueError(f"Failed to set static switch '{parameter_name}' using MaterialEditingLibrary. Parameter might not exist or GUID issue.")
-                unreal.MaterialEditingLibrary.update_material_instance(instance)
-                unreal.EditorAssetLibrary.save_loaded_asset(instance)
-                return json.dumps({"success": True, "message": f"Static switch '{parameter_name}' set to {value} via lib.", "new_value": value})
-
         with unreal.ScopedEditorTransaction(transaction_description) as trans:
-            found_param_info.value = bool(value)
-            found_param_info.override = True
-            instance.update_static_permutation(static_params_editor)
-            unreal.MaterialEditingLibrary.update_material_instance(instance) 
+            unreal.MaterialEditingLibrary.set_material_instance_static_switch_parameter_value(instance, ue_parameter_name, bool(value))
+            unreal.MaterialEditingLibrary.update_material_instance(instance)
             unreal.EditorAssetLibrary.save_loaded_asset(instance)
-            return json.dumps({"success": True, "message": f"Static switch parameter '{parameter_name}' set to {value} via prop. Instance updated and saved.", "new_value": value})
+            return json.dumps({
+                "success": True, 
+                "message": f"Static switch parameter '{parameter_name}' set to {value}", 
+                "new_value": value,
+                "available_parameters": available_params
+            })
             
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error setting static switch parameter '{parameter_name}': {str(e)}", "traceback": traceback.format_exc()})
+        return json.dumps({
+            "success": False, 
+            "message": f"Error setting static switch parameter '{parameter_name}': {str(e)}", 
+            "traceback": traceback.format_exc(),
+            "available_parameters": available_params
+        })

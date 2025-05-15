@@ -95,7 +95,7 @@ async def invert_actor_selection() -> dict:
     description="Deletes an actor with the specified label from the current Unreal Engine level.",
     tags={"unreal", "actor", "delete", "level-editing"}
 )
-async def delete_actor_by_name(
+async def delete_actor_by_label(
     actor_label: Annotated[str, Field(description="The label of the actor to delete (as seen in the World Outliner).")]
 ) -> dict:
     """Deletes an actor by its label."""
@@ -103,7 +103,7 @@ async def delete_actor_by_name(
     try:
         return await send_to_unreal(
             action_module=ACTOR_ACTIONS_MODULE,
-            action_name="ue_delete_actor_by_name",
+            action_name="ue_delete_actor_by_label",
             params=params
         )
     except UnrealExecutionError as e:
@@ -137,11 +137,10 @@ async def list_all_actors_with_locations() -> dict:
 async def spawn_actor_from_class(
     class_path: Annotated[str, Field(description="Path to the actor class (e.g., '/Game/Blueprints/MyActorBP.MyActorBP_C', '/Script/Engine.StaticMeshActor').")],
     location: Annotated[List[float], Field(description="List of 3 floats for the [X, Y, Z] spawn position.")],
-    rotation: Annotated[Optional[List[float]], Field(description="Optional list of 3 floats for [Pitch, Yaw, Roll] spawn rotation. Defaults to [0,0,0].")] = None
+    rotation: Annotated[List[float], Field(description="Optional list of 3 floats for [Pitch, Yaw, Roll] spawn rotation. Defaults to [0,0,0].")]
 ) -> dict:
     """Spawns an actor from a class path with optional rotation."""
-    actual_rotation = rotation if rotation is not None else [0.0, 0.0, 0.0]
-    params = {"class_path": class_path, "location": location, "rotation": actual_rotation}
+    params = {"class_path": class_path, "location": location, "rotation": rotation}
 
     try:
         return await send_to_unreal(
@@ -179,9 +178,9 @@ async def get_all_actors_details() -> dict:
 )
 async def set_actor_transform(
     actor_label: Annotated[str, Field(description="The label of the actor to modify.")],
-    location: Annotated[Optional[List[float]], Field(description="Optional new location [X, Y, Z].")] = None,
-    rotation: Annotated[Optional[List[float]], Field(description="Optional new rotation [Pitch, Yaw, Roll].")] = None,
-    scale: Annotated[Optional[List[float]], Field(description="Optional new scale [X, Y, Z].")] = None
+    location: Annotated[List[float], Field(description="Optional new location [X, Y, Z].")] = None,
+    rotation: Annotated[List[float], Field(description="Optional new rotation [Pitch, Yaw, Roll].")] = None,
+    scale: Annotated[List[float], Field(description="Optional new scale [X, Y, Z].")] = None
 ) -> dict:
     """Sets the transform of an actor. At least one transform component must be provided."""
     if location is None and rotation is None and scale is None:
@@ -275,8 +274,8 @@ async def spawn_actor_on_surface_with_raycast(
     ray_start: Annotated[List[float], Field(description="List of 3 floats for ray start location [X, Y, Z].")],
     ray_end: Annotated[List[float], Field(description="List of 3 floats for ray end location [X, Y, Z].")],
     is_class_path: Annotated[bool, Field(description="True if asset_or_class_path is a class path, False if it's an asset path.")] = True,
-    desired_rotation: Annotated[Optional[List[float]], Field(description="Optional list of 3 floats for desired actor rotation [Pitch, Yaw, Roll]. Defaults to [0,0,0].")] = None,
-    location_offset: Annotated[Optional[List[float]], Field(description="Optional list of 3 floats for location offset [X, Y, Z] from the hit point. Defaults to [0,0,0].")] = None,
+    desired_rotation: Annotated[List[float], Field(description="Optional list of 3 floats for desired actor rotation [Pitch, Yaw, Roll]. Defaults to [0,0,0].")] = None,
+    location_offset: Annotated[List[float], Field(description="Optional list of 3 floats for location offset [X, Y, Z] from the hit point. Defaults to [0,0,0].")] = None,
     trace_channel: Annotated[str, Field(description="Trace channel for raycast (e.g., 'Visibility', 'Camera'). Defaults to 'Visibility'.")] = 'Visibility',
     actors_to_ignore_labels: Annotated[Optional[List[str]], Field(description="Optional list of actor labels to ignore during the raycast.")] = None,
 ) -> dict:
