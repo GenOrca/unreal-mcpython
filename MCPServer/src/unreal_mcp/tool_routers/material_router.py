@@ -15,7 +15,7 @@ material_mcp = FastMCP(name="MaterialMCP", description="Tools for managing and e
 # --- Tool Endpoints for Materials (Refactored for FastMCP) ---
 
 @material_mcp.tool(
-    name="unreal_create_material_expression",
+    name="create_material_expression",
     description="Creates a new expression node within a specified material asset.",
     tags={"unreal", "material", "shader", "graph", "editor"}
 )
@@ -41,7 +41,7 @@ async def create_material_expression(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_connect_material_expressions",
+    name="connect_material_expressions",
     description="Connects two expression nodes within a material asset.",
     tags={"unreal", "material", "shader", "graph", "editor"}
 )
@@ -73,7 +73,7 @@ async def connect_material_expressions(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_recompile_material",
+    name="recompile_material",
     description="Recompiles a material or material instance asset.",
     tags={"unreal", "material", "shader", "compile"}
 )
@@ -91,7 +91,7 @@ async def recompile_material(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_get_material_instance_scalar_parameter",
+    name="get_material_instance_scalar_parameter",
     description="Gets the value of a scalar parameter from a material instance.",
     tags={"unreal", "material", "instance", "parameter", "scalar", "query"}
 )
@@ -113,7 +113,7 @@ async def get_material_instance_scalar_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_set_material_instance_scalar_parameter",
+    name="set_material_instance_scalar_parameter",
     description="Sets the value of a scalar parameter in a material instance.",
     tags={"unreal", "material", "instance", "parameter", "scalar", "modify"}
 )
@@ -137,7 +137,7 @@ async def set_material_instance_scalar_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_get_material_instance_vector_parameter",
+    name="get_material_instance_vector_parameter",
     description="Gets the value of a vector parameter from a material instance.",
     tags={"unreal", "material", "instance", "parameter", "vector", "query"}
 )
@@ -159,7 +159,7 @@ async def get_material_instance_vector_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_set_material_instance_vector_parameter",
+    name="set_material_instance_vector_parameter",
     description="Sets the value of a vector parameter in a material instance.",
     tags={"unreal", "material", "instance", "parameter", "vector", "modify"}
 )
@@ -183,7 +183,7 @@ async def set_material_instance_vector_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_get_material_instance_texture_parameter",
+    name="get_material_instance_texture_parameter",
     description="Gets the texture asset assigned to a texture parameter in a material instance.",
     tags={"unreal", "material", "instance", "parameter", "texture", "query"}
 )
@@ -205,7 +205,7 @@ async def get_material_instance_texture_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_set_material_instance_texture_parameter",
+    name="set_material_instance_texture_parameter",
     description="Sets or clears a texture asset for a texture parameter in a material instance.",
     tags={"unreal", "material", "instance", "parameter", "texture", "modify"}
 )
@@ -229,7 +229,7 @@ async def set_material_instance_texture_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_get_material_instance_static_switch_parameter",
+    name="get_material_instance_static_switch_parameter",
     description="Gets the value of a static switch parameter from a material instance.",
     tags={"unreal", "material", "instance", "parameter", "static", "switch", "query"}
 )
@@ -251,7 +251,7 @@ async def get_material_instance_static_switch_parameter(
         return {"success": False, "message": f"An unexpected error occurred in material_router: {str(e)}"}
 
 @material_mcp.tool(
-    name="unreal_set_material_instance_static_switch_parameter",
+    name="set_material_instance_static_switch_parameter",
     description="Sets the value of a static switch parameter in a material instance.",
     tags={"unreal", "material", "instance", "parameter", "static", "switch", "modify"}
 )
