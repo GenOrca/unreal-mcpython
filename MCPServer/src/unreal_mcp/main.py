@@ -16,5 +16,4 @@ if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--test":
         asyncio.run(test_server())
     else:
-        # 일반 서버 실행
         run_server()
