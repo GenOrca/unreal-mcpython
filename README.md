@@ -11,12 +11,18 @@ This project implements a **Model Context Protocol (MCP) server** specifically d
 
 ## 🎯 Why Choose Unreal-MCPython?
 
+<p align="center">
+<img src="https://raw.githubusercontent.com/GenOrca/Screenshot/refs/heads/main/unreal-mcp/Screenshot%202025-06-02%20025106.png" width="400">
+<img src="https://raw.githubusercontent.com/GenOrca/Screenshot/refs/heads/main/unreal-mcp/Screenshot%202025-06-02%20025111.png" width="400">
+<img src="https://raw.githubusercontent.com/GenOrca/Screenshot/refs/heads/main/unreal-mcp/Screenshot%202025-06-02%20025115.png" width="400">
+<img src="https://raw.githubusercontent.com/GenOrca/Screenshot/refs/heads/main/unreal-mcp/Screenshot%202025-06-02%20025120.png" width="400">
+</p>
+
 - 🧠 **Unreal AI integration** - Direct Claude AI assistance in Unreal Engine
 - 🔗 **Native MCP protocol support** - Seamless communication between AI and UE
 - 🎮 **Intelligent game development** - AI-powered asset management and scene manipulation  
 - ⚡ **Smart automation** - Context-aware blueprint scripting with AI guidance
 - 🎨 **Technical artist focused** - AI assistance for complex production pipelines
-
 
 
 ## Key Features
@@ -63,8 +69,28 @@ If you already have Claude for Desktop, make sure it's on the latest version by 
 
 ### 2. Install from Fab
 
+
+### 2. Install Unreal-MCPython Plugin
+
+**Option 1: Install from Fab (Recommended)**
+
+[Fab Link : Unreal-MCPython: AI Assistant Plugin for Unreal Editor using Python & MCP](https://fab.com/s/aed5f75d50b2)
+
 After downloading the Unreal-MCPython plugin on Fab, find the plugin in your Library in the Epic Games Launcher.
 Click "Install to Engine" and choose the appropriate version of Unreal Engine (5.6 or higher).
+
+
+**Option 2: Manual Installation from GitHub**
+Alternatively, you can download the project directly from GitHub and place it in your project's plugins folder:
+1. Download or clone the Unreal-MCPython plugin from the GitHub repository
+2. Copy the plugin folder to your Unreal Engine project's `Plugins` directory:
+```
+YourProject/
+└── Plugins/
+└── Unreal-MCPython/
+```
+3. If the `Plugins` folder doesn't exist in your project, create it manually
+4. Restart Unreal Engine and enable the plugin from Edit → Plugins menu
 
 ### 3. Install unreal-mcp-server
 
