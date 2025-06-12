@@ -92,7 +92,7 @@ YourProject/
 3. If the `Plugins` folder doesn't exist in your project, create it manually
 4. Restart Unreal Engine and enable the plugin from Edit → Plugins menu
 
-### 3. Install unreal-mcp-server
+### 3. Install [unreal-mcp-server](https://github.com/GenOrca/unreal-mcp-server)
 
 Clone the repository:
 ```bash
