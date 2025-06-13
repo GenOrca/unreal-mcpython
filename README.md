@@ -27,29 +27,25 @@ This project implements a **Model Context Protocol (MCP) server** specifically d
 
 ## Key Features
 
-### 🤖 AI-Enhanced Asset Management
-- asset search and filtering
-- Intelligent asset recommendations and organization
-- AI-assisted metadata analysis and tagging
-- Smart asset dependency mapping
+🎮 Actor Manipulation
+- Actor placement and scene composition
+- Actor duplication and transformation
+- Surface placement via raycasting
+- Scene analysis (actor listing and details)
 
-### 🎮 Intelligent Actor Manipulation  
-- AI-guided actor placement and scene composition
-- Context-aware duplication and transformation
-- Smart surface placement via AI-enhanced raycasting
-- Intelligent scene analysis and optimization suggestions
+🎨 Asset Management
+- Asset search and filtering by name/type
+- Static mesh details retrieval
 
-### 🧠 Claude AI Integration
-- Natural language commands for Unreal Engine operations
-- AI-powered Blueprint analysis and explanations
-- Intelligent workflow suggestions and optimizations
-- Context-aware technical documentation generation
+🎭 Material System
+- Material instance parameter management (scalar, vector, texture, static switch)
+- Material recompilation
 
-### 🔧 MCP-Powered Editor Tools
-- **Unreal MCP** server for real-time AI communication
-- Batch operations with AI guidance
-- Smart material and mesh replacement workflows
-- AI-assisted debugging and troubleshooting
+🔧 Editor Tools
+- Asset selection management
+- Material replacement on actors
+- Mesh replacement on actors
+- Blueprint node information retrieval
 
 ## 🚀 Installation Guide
 
