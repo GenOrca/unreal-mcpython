@@ -3,6 +3,8 @@
 
 **Unreal-MCPython** is a revolutionary **Unreal AI** tool that brings **MCP (Model Context Protocol)** capabilities directly into Unreal Engine. This **Unreal MCP** integration enables AI-assisted game development workflows, allowing developers and technical artists to leverage Claude AI for intelligent automation and smart production pipelines.
 
+[![YouTube Demo](https://img.youtube.com/vi/V7KyjzFlBLk/hqdefault.jpg)](https://youtu.be/V7KyjzFlBLk?si=QaqVqmt6YL59DHg4)
+
 **Keywords**: `unreal-mcp` `unreal-ai` `mcp-unreal` `ai-gamedev` `unreal-automation` `claude-integration`
 
 ## 🤖 What is Unreal-MCP Integration?
