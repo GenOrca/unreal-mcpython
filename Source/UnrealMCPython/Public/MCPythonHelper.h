@@ -9,17 +9,35 @@
 
 
 USTRUCT(BlueprintType)
+struct FMCPythonPinLinkInfo
+{
+    GENERATED_BODY()
+    UPROPERTY(BlueprintReadOnly, Category="MCPython")
+    FString NodeName;
+    UPROPERTY(BlueprintReadOnly, Category="MCPython")
+    FString NodeTitle;
+    UPROPERTY(BlueprintReadOnly, Category="MCPython")
+    FString PinName;
+};
+
+USTRUCT(BlueprintType)
 struct FMCPythonBlueprintPinInfo
 {
     GENERATED_BODY()
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
     FString PinName;
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
+    FString FriendlyName;
+    UPROPERTY(BlueprintReadOnly, Category="MCPython")
     FString Direction;
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
     FString PinType;
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
-    TArray<FString> LinkedToNodeNames;
+    FString PinSubType;
+    UPROPERTY(BlueprintReadOnly, Category="MCPython")
+    FString DefaultValue;
+    UPROPERTY(BlueprintReadOnly, Category="MCPython")
+    TArray<FMCPythonPinLinkInfo> LinkedTo;
 };
 
 USTRUCT(BlueprintType)
@@ -29,9 +47,9 @@ struct FMCPythonBlueprintNodeInfo
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
     FString NodeName;
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
-    FString NodeClass;
+    FString NodeTitle;
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
-    FString NodePath;
+    FString NodeComment;
     UPROPERTY(BlueprintReadOnly, Category="MCPython")
     TArray<FMCPythonBlueprintPinInfo> Pins;
 };

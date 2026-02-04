@@ -179,7 +179,7 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
 
                     // Generate a short script to call the execute_action function from the mcp_unreal_actions module
                     // The first argument is the target module name, the second is the target function name, and the third is the argument dictionary.
-                    CodeField = FString::Printf(TEXT("import mcp_unreal_actions;print(mcp_unreal_actions.execute_action(\'%s\', \'%s\', %s));"), // Removed [] around %s
+                    CodeField = FString::Printf(TEXT("from UnrealMCPython import mcp_unreal_actions;print(mcp_unreal_actions.execute_action(\'%s\', \'%s\', %s));"), // Removed [] around %s
                                                 *ModuleName, 
                                                 *FunctionName, 
                                                 *PyArgsStringForCall); 

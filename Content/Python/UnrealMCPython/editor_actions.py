@@ -599,31 +599,56 @@ def ue_get_selected_blueprint_nodes() -> str:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
 def ue_get_selected_blueprint_node_infos() -> str:
-    """Returns detailed info (including pin connections) about currently selected blueprint nodes for LLM or external tools."""
+    """Returns compact blueprint node info optimized for LLM token efficiency."""
     import unreal
     import json
     try:
         node_infos = unreal.MCPythonHelper.get_selected_blueprint_node_infos()
-        # Convert Unreal struct array to list of dicts for JSON serialization
+
+        # Build node_name -> index map for selected nodes
+        name_to_id = {}
+        for i, n in enumerate(node_infos):
+            name_to_id[n.node_name] = i
+
+        def link_to_dict(link):
+            d = {}
+            # Use integer ID for selected nodes, title string for external nodes
+            if link.node_name in name_to_id:
+                d["node"] = name_to_id[link.node_name]
+            else:
+                d["node"] = link.node_title
+            if link.pin_name:
+                d["pin"] = link.pin_name
+            return d
+
         def pin_to_dict(pin):
-            return {
-                "pin_name": pin.pin_name,
-                "direction": pin.direction,
-                "pin_type": pin.pin_type,
-                "linked_to_node_names": list(pin.linked_to_node_names)
-            }
-        def node_to_dict(node):
-            return {
-                "node_name": node.node_name,
-                "node_class": node.node_class,
-                "node_path": node.node_path,
-                "pins": [pin_to_dict(pin) for pin in node.pins]
-            }
-        result = [node_to_dict(n) for n in node_infos]
+            name = pin.friendly_name if pin.friendly_name else pin.pin_name
+            d = {"name": name, "dir": pin.direction}
+            # Combine type + subtype
+            ptype = pin.pin_type
+            if pin.pin_sub_type:
+                ptype += ":" + pin.pin_sub_type
+            d["type"] = ptype
+            # Only include default if non-empty
+            if pin.default_value:
+                d["default"] = pin.default_value
+            # Only include linked if non-empty
+            linked = list(pin.linked_to)
+            if linked:
+                d["linked"] = [link_to_dict(l) for l in linked]
+            return d
+
+        def node_to_dict(node, idx):
+            d = {"id": idx, "title": node.node_title}
+            if node.node_comment:
+                d["comment"] = node.node_comment
+            d["pins"] = [pin_to_dict(p) for p in node.pins]
+            return d
+
+        nodes = [node_to_dict(n, i) for i, n in enumerate(node_infos)]
         return json.dumps({
             "success": True,
-            "selected_nodes_count": len(result),
-            "selected_nodes": result
+            "nodes": nodes
         })
     except Exception as e:
         import traceback

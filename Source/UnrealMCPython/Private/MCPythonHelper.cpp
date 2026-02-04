@@ -62,20 +62,32 @@ TArray<FMCPythonBlueprintNodeInfo> UMCPythonHelper::GetSelectedBlueprintNodeInfo
                     if (!Node) continue;
                     FMCPythonBlueprintNodeInfo NodeInfo;
                     NodeInfo.NodeName = Node->GetName();
-                    NodeInfo.NodeClass = Node->GetClass()->GetName();
-                    NodeInfo.NodePath = Node->GetPathName();
+                    NodeInfo.NodeTitle = Node->GetNodeTitle(ENodeTitleType::FullTitle).ToString();
+                    NodeInfo.NodeComment = Node->NodeComment;
                     for (UEdGraphPin* Pin : Node->Pins)
                     {
-                        if (!Pin) continue;
+                        if (!Pin || Pin->bHidden) continue;
                         FMCPythonBlueprintPinInfo PinInfo;
+                        FString Friendly = Pin->PinFriendlyName.ToString();
                         PinInfo.PinName = Pin->GetName();
-                        PinInfo.Direction = (Pin->Direction == EGPD_Input) ? TEXT("Input") : TEXT("Output");
+                        PinInfo.FriendlyName = Friendly;
+                        PinInfo.Direction = (Pin->Direction == EGPD_Input) ? TEXT("In") : TEXT("Out");
                         PinInfo.PinType = Pin->PinType.PinCategory.ToString();
+                        if (Pin->PinType.PinSubCategoryObject.IsValid())
+                        {
+                            PinInfo.PinSubType = Pin->PinType.PinSubCategoryObject->GetName();
+                        }
+                        PinInfo.DefaultValue = Pin->DefaultValue;
                         for (UEdGraphPin* LinkedPin : Pin->LinkedTo)
                         {
                             if (LinkedPin && LinkedPin->GetOwningNode())
                             {
-                                PinInfo.LinkedToNodeNames.Add(LinkedPin->GetOwningNode()->GetName());
+                                FMCPythonPinLinkInfo LinkInfo;
+                                LinkInfo.NodeName = LinkedPin->GetOwningNode()->GetName();
+                                LinkInfo.NodeTitle = LinkedPin->GetOwningNode()->GetNodeTitle(ENodeTitleType::FullTitle).ToString();
+                                FString LinkedFriendly = LinkedPin->PinFriendlyName.ToString();
+                                LinkInfo.PinName = LinkedFriendly.IsEmpty() ? LinkedPin->GetName() : LinkedFriendly;
+                                PinInfo.LinkedTo.Add(LinkInfo);
                             }
                         }
                         NodeInfo.Pins.Add(PinInfo);
