@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GenOrca. All Rights Reserved.
+
 """
 Core dispatcher for executing dynamic Python commands received from the MCP server.
 All specific action functions have been moved to their respective modules:

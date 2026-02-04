@@ -1,11 +1,8 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright (c) 2025 GenOrca (by zenoengine). All Rights Reserved.
 
 #include "UnrealMCPython.h"
 #include "Sockets.h"
 #include "SocketSubsystem.h"
-#include "IPAddress.h"
-#include "Networking.h"
-#include "HAL/RunnableThread.h"
 #include "Common/TcpListener.h"
 #include "IPythonScriptPlugin.h"
 #include "Serialization/JsonSerializer.h"

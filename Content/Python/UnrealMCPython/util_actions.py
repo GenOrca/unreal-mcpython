@@ -1,4 +1,4 @@
-# Utility actions for Unreal Engine
+# Copyright (c) 2025 GenOrca. All Rights Reserved.
 
 import unreal
 import json

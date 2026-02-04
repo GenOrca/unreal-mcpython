@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright (c) 2025 GenOrca (by zenoengine). All Rights Reserved.
 
 using UnrealBuildTool;
 
@@ -37,7 +37,7 @@ public class UnrealMCPython : ModuleRules
 			}
 			);
 			
-		
+
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
@@ -45,7 +45,11 @@ public class UnrealMCPython : ModuleRules
 				"Engine",
 				"Slate",
 				"SlateCore",
-				// ... add private dependencies that you statically link with here ...	
+				"UnrealEd",
+				"EditorSubsystem",
+				"AssetTools",
+				"BlueprintGraph",
+				"Kismet",
 			}
 			);
 		

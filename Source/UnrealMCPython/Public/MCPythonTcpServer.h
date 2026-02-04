@@ -1,3 +1,5 @@
+// Copyright (c) 2025 GenOrca (by zenoengine). All Rights Reserved.
+
 #pragma once
 
 #include "CoreMinimal.h"

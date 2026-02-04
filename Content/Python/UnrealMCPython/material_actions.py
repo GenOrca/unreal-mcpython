@@ -1,3 +1,5 @@
+# Copyright (c) 2025 GenOrca. All Rights Reserved.
+
 """
 Defines Python action functions for material editing to be executed within Unreal Engine.
 """

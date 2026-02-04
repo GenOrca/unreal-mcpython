@@ -1,4 +1,4 @@
-# Actor management actions for Unreal Engine
+# Copyright (c) 2025 GenOrca (by zenoengine). All Rights Reserved.
 
 import unreal
 import json

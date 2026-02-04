@@ -1,7 +1,9 @@
+// Copyright (c) 2025 GenOrca (by zenoengine). All Rights Reserved.
+
 #include "MCPythonTcpServer.h"
 #include "Sockets.h"
 #include "SocketSubsystem.h"
-#include "Networking.h"
+#include "IPAddress.h"
 #include "Common/TcpListener.h"
 #include "IPythonScriptPlugin.h"
 #include "Serialization/JsonSerializer.h"

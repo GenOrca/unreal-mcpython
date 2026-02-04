@@ -1,4 +1,4 @@
-# editor_actions.py
+# Copyright (c) 2025 GenOrca. All Rights Reserved.
 
 import unreal
 import json
@@ -573,4 +573,58 @@ def ue_replace_selected_actors_with_blueprint(blueprint_asset_path: str) -> str:
             "replaced_actors_count": len(selected_actors)
         })
     except Exception as e:
+        return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
+
+def ue_get_selected_blueprint_nodes() -> str:
+    """Returns information about currently selected blueprint nodes in the editor."""
+    import unreal
+    import json
+    try:
+        nodes = unreal.MCPythonHelper.get_selected_blueprint_nodes()
+        node_infos = []
+        for node in nodes:
+            node_info = {
+                "name": node.get_name() if hasattr(node, 'get_name') else str(node),
+                "class": node.get_class().get_name() if hasattr(node, 'get_class') else str(type(node)),
+                "object_path": node.get_path_name() if hasattr(node, 'get_path_name') else None
+            }
+            node_infos.append(node_info)
+        return json.dumps({
+            "success": True,
+            "selected_nodes_count": len(node_infos),
+            "selected_nodes": node_infos
+        })
+    except Exception as e:
+        import traceback
+        return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
+
+def ue_get_selected_blueprint_node_infos() -> str:
+    """Returns detailed info (including pin connections) about currently selected blueprint nodes for LLM or external tools."""
+    import unreal
+    import json
+    try:
+        node_infos = unreal.MCPythonHelper.get_selected_blueprint_node_infos()
+        # Convert Unreal struct array to list of dicts for JSON serialization
+        def pin_to_dict(pin):
+            return {
+                "pin_name": pin.pin_name,
+                "direction": pin.direction,
+                "pin_type": pin.pin_type,
+                "linked_to_node_names": list(pin.linked_to_node_names)
+            }
+        def node_to_dict(node):
+            return {
+                "node_name": node.node_name,
+                "node_class": node.node_class,
+                "node_path": node.node_path,
+                "pins": [pin_to_dict(pin) for pin in node.pins]
+            }
+        result = [node_to_dict(n) for n in node_infos]
+        return json.dumps({
+            "success": True,
+            "selected_nodes_count": len(result),
+            "selected_nodes": result
+        })
+    except Exception as e:
+        import traceback
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
