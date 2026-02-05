@@ -135,7 +135,7 @@ bool FMCPythonTcpServer::HandleIncomingConnection(FSocket* ClientSocket, const F
 
 void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint)
 {
-    UE_LOG(LogMCPython, Log, TEXT("Processing Data on Game Thread: %s"), *Data);
+    UE_LOG(LogMCPython, Verbose, TEXT("Processing Data on Game Thread: %s"), *Data);
 
     TSharedPtr<FJsonObject> JsonObj;
     TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(Data);
@@ -184,7 +184,7 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                                                 *FunctionName, 
                                                 *PyArgsStringForCall); 
 
-                    UE_LOG(LogMCPython, Log, TEXT("Generated Python Call (via execute_action):\\n%s"), *CodeField);
+                    UE_LOG(LogMCPython, Verbose, TEXT("Generated Python Call (via execute_action):\\n%s"), *CodeField);
                 }
                 else
                 {
@@ -230,7 +230,7 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                     CapturedLogs = WrappedJson;
                 }
 
-                UE_LOG(LogMCPython, Log, TEXT("Python Command Executed. Success: %s. Output Log: %s"),
+                UE_LOG(LogMCPython, Verbose, TEXT("Python Command Executed. Success: %s. Output Log: %s"),
                     bExecSuccess ? TEXT("True") : TEXT("False"), *CapturedLogs);
 
                 TSharedPtr<FJsonObject> ResponseToClient = MakeShareable(new FJsonObject);
