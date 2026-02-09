@@ -79,25 +79,28 @@ Click "Install to Engine" and choose the appropriate version of Unreal Engine (5
 
 
 **Option 2: Manual Installation from GitHub**
-Alternatively, you can download the project directly from GitHub and place it in your project's plugins folder:
-1. Download or clone the Unreal-MCPython plugin from the GitHub repository
-2. Copy the plugin folder to your Unreal Engine project's `Plugins` directory:
+Alternatively, you can clone the repository directly and place it in your project's plugins folder:
+```bash
+git clone https://github.com/GenOrca/unreal-mcpython.git
+```
+Copy the cloned folder to your Unreal Engine project's `Plugins` directory:
 ```
 YourProject/
 └── Plugins/
-└── Unreal-MCPython/
+    └── unreal-mcpython/
+        ├── Source/
+        ├── Content/
+        ├── mcp-server/        ← MCP server included
+        └── UnrealMCPython.uplugin
 ```
-3. If the `Plugins` folder doesn't exist in your project, create it manually
-4. Restart Unreal Engine and enable the plugin from Edit → Plugins menu
+If the `Plugins` folder doesn't exist in your project, create it manually.
+Restart Unreal Engine and enable the plugin from Edit > Plugins menu.
 
-### 3. Install [unreal-mcp-server](https://github.com/GenOrca/unreal-mcp-server)
+### 3. MCP Server
 
-Clone the repository:
-```bash
-git clone https://github.com/genorca/unreal-mcp-server.git
-cd unreal-mcp-server
-```
-Ensure you have Python 3.11+ and uv installed.
+The MCP server is included in this repository under `mcp-server/`.
+
+Ensure you have Python 3.11+ and [uv](https://docs.astral.sh/uv/) installed.
 
 ### 4. Configure Claude for Desktop
 
@@ -117,7 +120,7 @@ Ensure you have Python 3.11+ and uv installed.
             "command": "uv",
             "args": [
                 "--directory",
-                "C:\\absolute\\path\\to\\unreal-mcp-server",
+                "C:\\absolute\\path\\to\\unreal-mcpython\\mcp-server",
                 "run",
                 "src/unreal_mcp/main.py"
             ]
@@ -125,7 +128,7 @@ Ensure you have Python 3.11+ and uv installed.
     }
 }
 ```
-Replace with the actual absolute path to your unreal-mcp-server folder.
+Replace with the actual absolute path to the `mcp-server` folder inside your plugin directory.
 
 ### 5. Configure Unreal Engine
 
