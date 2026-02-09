@@ -65,25 +65,14 @@ Note: Linux is not yet supported for Claude for Desktop.
 Follow the installation instructions.
 If you already have Claude for Desktop, make sure it's on the latest version by clicking on the Claude menu on your computer and selecting "Check for Updates…"
 
-### 2. Install from Fab
-
-
 ### 2. Install Unreal-MCPython Plugin
 
-**Option 1: Install from Fab (Recommended)**
+**Option 1: Clone from GitHub (Recommended)**
 
-[Fab Link : Unreal-MCPython: AI Assistant Plugin for Unreal Editor using Python & MCP](https://fab.com/s/aed5f75d50b2)
-
-After downloading the Unreal-MCPython plugin on Fab, find the plugin in your Library in the Epic Games Launcher.
-Click "Install to Engine" and choose the appropriate version of Unreal Engine (5.6 or higher).
-
-
-**Option 2: Manual Installation from GitHub**
-Alternatively, you can clone the repository directly and place it in your project's plugins folder:
+Clone the repository and place it in your project's Plugins directory:
 ```bash
 git clone https://github.com/GenOrca/unreal-mcpython.git
 ```
-Copy the cloned folder to your Unreal Engine project's `Plugins` directory:
 ```
 YourProject/
 └── Plugins/
@@ -95,6 +84,15 @@ YourProject/
 ```
 If the `Plugins` folder doesn't exist in your project, create it manually.
 Restart Unreal Engine and enable the plugin from Edit > Plugins menu.
+
+**Option 2: Install from Fab**
+
+> Note: The Fab version may not include the latest updates. For the most up-to-date version, use GitHub.
+
+[Fab Link: Unreal-MCPython](https://fab.com/s/aed5f75d50b2)
+
+After installing from Fab, you still need the MCP server from this repository.
+Clone or download the `mcp-server/` folder from GitHub separately.
 
 ### 3. MCP Server
 
