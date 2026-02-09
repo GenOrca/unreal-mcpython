@@ -7,10 +7,10 @@ Validates that MCP server router function names match plugin action function nam
 Convention: router function 'foo_bar' must have a corresponding plugin function 'ue_foo_bar'.
 
 Usage:
-    python validate_tools.py <plugin_python_dir>
+    python validate_tools.py [plugin_python_dir]
 
-Example:
-    python validate_tools.py "C:/Projects/ThirdPerson/Plugins/UnrealMCPython/Content/Python/UnrealMCPython"
+When run without arguments, auto-detects the plugin directory from the monorepo layout:
+    <repo_root>/Content/Python/UnrealMCPython/
 """
 
 import ast
@@ -116,11 +116,12 @@ def validate(plugin_dir: Path) -> bool:
 
 
 def main():
-    if len(sys.argv) < 2:
-        print(__doc__)
-        sys.exit(1)
+    if len(sys.argv) >= 2:
+        plugin_dir = Path(sys.argv[1])
+    else:
+        # Auto-detect from monorepo layout: mcp-server/../Content/Python/UnrealMCPython
+        plugin_dir = Path(__file__).parent.parent / "Content" / "Python" / "UnrealMCPython"
 
-    plugin_dir = Path(sys.argv[1])
     if not plugin_dir.is_dir():
         print(f"ERROR: Plugin directory not found: {plugin_dir}")
         sys.exit(1)
