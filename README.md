@@ -1,17 +1,8 @@
 # Unreal-MCPython
-## AI-Powered Unreal Engine Automation with MCP Integration
 
-**Unreal-MCPython** is a revolutionary **Unreal AI** tool that brings **MCP (Model Context Protocol)** capabilities directly into Unreal Engine. This **Unreal MCP** integration enables AI-assisted game development workflows, allowing developers and technical artists to leverage Claude AI for intelligent automation and smart production pipelines.
+MCP (Model Context Protocol) integration for Unreal Engine. Connects AI assistants like Claude directly to the Unreal Editor for asset management, scene manipulation, and workflow automation.
 
 [![YouTube Demo](https://img.youtube.com/vi/V7KyjzFlBLk/hqdefault.jpg)](https://youtu.be/V7KyjzFlBLk?si=QaqVqmt6YL59DHg4)
-
-**Keywords**: `unreal-mcp` `unreal-ai` `mcp-unreal` `ai-gamedev` `unreal-automation` `claude-integration`
-
-## 🤖 What is Unreal-MCP Integration?
-
-This project implements a **Model Context Protocol (MCP) server** specifically designed for Unreal Engine, creating the first **Unreal AI** solution that allows Claude to directly interact with your UE projects. Through **Unreal MCP**, you can now have intelligent conversations with AI about your game assets, automate complex workflows, and get context-aware assistance for technical art tasks.
-
-## 🎯 Why Choose Unreal-MCPython?
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/GenOrca/Screenshot/refs/heads/main/unreal-mcp/Screenshot%202025-06-02%20025106.png" width="400">
@@ -20,56 +11,32 @@ This project implements a **Model Context Protocol (MCP) server** specifically d
 <img src="https://raw.githubusercontent.com/GenOrca/Screenshot/refs/heads/main/unreal-mcp/Screenshot%202025-06-02%20025120.png" width="400">
 </p>
 
-- 🧠 **Unreal AI integration** - Direct Claude AI assistance in Unreal Engine
-- 🔗 **Native MCP protocol support** - Seamless communication between AI and UE
-- 🎮 **Intelligent game development** - AI-powered asset management and scene manipulation  
-- ⚡ **Smart automation** - Context-aware blueprint scripting with AI guidance
-- 🎨 **Technical artist focused** - AI assistance for complex production pipelines
+## Features
 
+**Actor Manipulation** — Spawn, duplicate, transform, delete actors. Surface placement via raycasting. View frustum queries.
 
-## Key Features
+**Asset Management** — Search and filter assets by name/type. Static mesh detail retrieval.
 
-🎮 Actor Manipulation
-- Actor placement and scene composition
-- Actor duplication and transformation
-- Surface placement via raycasting
-- Scene analysis (actor listing and details)
+**Material System** — Material instance parameters (scalar, vector, texture, static switch). Expression creation and connection. Recompilation.
 
-🎨 Asset Management
-- Asset search and filtering by name/type
-- Static mesh details retrieval
+**Editor Tools** — Selection management. Material/mesh replacement on actors. Blueprint node inspection.
 
-🎭 Material System
-- Material instance parameter management (scalar, vector, texture, static switch)
-- Material recompilation
+## Installation
 
-🔧 Editor Tools
-- Asset selection management
-- Material replacement on actors
-- Mesh replacement on actors
-- Blueprint node information retrieval
+### Prerequisites
 
-## 🚀 Installation Guide
+- Unreal Engine 5.6+
+- Python 3.11+
+- [uv](https://docs.astral.sh/uv/)
+- An MCP client (Claude Desktop, VS Code, Cursor, etc.)
 
-### Prerequisites for Unreal-MCP Setup
-This **Unreal AI** integration requires the Model Context Protocol setup. Please refer to the [MCP official documentation](https://modelcontextprotocol.io/quickstart/user) for comprehensive details.
+See the [MCP documentation](https://modelcontextprotocol.io/quickstart/user) for general MCP setup.
 
-
-### 1. Download Claude for Desktop
-
-Download Claude for Desktop (choose either macOS or Windows).
-
-Note: Linux is not yet supported for Claude for Desktop.
-
-
-Follow the installation instructions.
-If you already have Claude for Desktop, make sure it's on the latest version by clicking on the Claude menu on your computer and selecting "Check for Updates…"
-
-### 2. Install Unreal-MCPython Plugin
+### 1. Install the Plugin
 
 **Option 1: Clone from GitHub (Recommended)**
 
-Clone the repository and place it in your project's Plugins directory:
+Clone and place in your project's Plugins directory:
 ```bash
 git clone https://github.com/GenOrca/unreal-mcpython.git
 ```
@@ -82,34 +49,24 @@ YourProject/
         ├── mcp-server/        ← MCP server included
         └── UnrealMCPython.uplugin
 ```
-If the `Plugins` folder doesn't exist in your project, create it manually.
-Restart Unreal Engine and enable the plugin from Edit > Plugins menu.
 
 **Option 2: Install from Fab**
 
-> Note: The Fab version may not include the latest updates. For the most up-to-date version, use GitHub.
+> The Fab version may not include the latest updates. For the most up-to-date version, use GitHub.
 
-[Fab Link: Unreal-MCPython](https://fab.com/s/aed5f75d50b2)
+[Fab: Unreal-MCPython](https://fab.com/s/aed5f75d50b2)
 
-After installing from Fab, you still need the MCP server from this repository.
-Clone or download the `mcp-server/` folder from GitHub separately.
+After installing from Fab, you still need the `mcp-server/` folder from this repository.
 
-### 3. MCP Server
+### 2. Configure Unreal Engine
 
-The MCP server is included in this repository under `mcp-server/`.
+1. Open your project in Unreal Engine.
+2. Edit > Plugins — enable **Unreal-MCPython** and **Python Editor Script Plugin**.
+3. Restart the editor.
 
-Ensure you have Python 3.11+ and [uv](https://docs.astral.sh/uv/) installed.
+### 3. Configure your MCP Client
 
-### 4. Configure Claude for Desktop
-
-1. Open the Claude menu on your computer and select "Settings…"
-    - Note: These are not the Claude Account Settings found in the app window itself.
-
-2. Click on "Developer" in the left-hand bar of the Settings pane, and then click on "Edit Config".
-3. This will create a configuration file at:
-    - Windows: %APPDATA%\Claude\claude_desktop_config.json
-
-4. Open the configuration file in any text editor and replace the file contents with:
+The MCP server is included under `mcp-server/`. Add it to your client config:
 
 ```json
 {
@@ -126,50 +83,43 @@ Ensure you have Python 3.11+ and [uv](https://docs.astral.sh/uv/) installed.
     }
 }
 ```
-Replace with the actual absolute path to the `mcp-server` folder inside your plugin directory.
 
-### 5. Configure Unreal Engine
+Replace with the actual absolute path to the `mcp-server` folder.
 
-1. Create a new Unreal Engine project or load an existing project.
-2. From the "Edit" menu, select "Plugins".
-3. Enable these plugins: Unreal-MCPython and Python Editor Script Plugin.
-4. Restart Unreal Engine.
+Config file locations:
+- **Claude Desktop**: `%APPDATA%\Claude\claude_desktop_config.json` (Windows) / `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS)
+- **VS Code / Cursor**: `.vscode/mcp.json` in your workspace
 
-### 6. Connect with Claude
+### 4. Connect
 
-1. Restart Claude for Desktop.
-2. The MCP server will start automatically in the background.
-3. Upon restarting, you should see a slider icon in the bottom left corner of the input box.
-4. Click the slider icon to view and connect to available Unreal Engine tools.
-5. Select the "unreal-mcpython" server to connect.
-6. You can now ask Claude to perform automation tasks in your project using the UE Python API.
+1. Restart your MCP client.
+2. The MCP server starts automatically.
+3. Verify the connection — you should see Unreal-MCPython tools available in your client.
 
+## Usage
 
-
-# 🔍 Usage Examples
-## Basic Unreal AI Commands
 ```
-"Create 10 trees randomly placed on the terrain surface"  
+"Place 10 trees randomly on the terrain surface"
+"Find all static meshes with 'rock' in the name"
+"Set the base color of MI_Ground to dark brown"
 ```
 
-### Troubleshooting
+## Troubleshooting
 
-- MCP server not starting: Verify that Python 3.11+ and uv are properly installed.
-- Path errors: Ensure the absolute path in the configuration file is correct.
-- Plugin not visible: Restart Unreal Engine and verify the plugins are enabled.
-- Slider icon not visible: Completely restart Claude for Desktop and verify the configuration file was saved correctly.
+- **MCP server not starting**: Verify Python 3.11+ and uv are installed.
+- **Path errors**: Check the absolute path in your config file.
+- **Plugin not visible**: Restart UE and confirm both plugins are enabled.
+- **Tools not showing**: Restart your MCP client and verify the config.
 
-### References
+## References
 
-- [Model Context Protocol Official Documentation](https://modelcontextprotocol.io/quickstart/user)
-- [Unreal Python API Reference](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/?application_version=5.6)
+- [Model Context Protocol](https://modelcontextprotocol.io/quickstart/user)
+- [Unreal Python API](https://dev.epicgames.com/documentation/en-us/unreal-engine/python-api/)
 
-# 🤝 Contributing to Unreal-MCP
-Unreal-MCPython is an open-source project, and we welcome your contributions.
+## Contributing
 
-- 🐛 Report bugs and issues
-- 💡 Suggest new features and workflows
-- 🔧 Submit pull requests for Unreal MCPython enhancements
-- 📚 Improve documentation and examples
+Issues, feature requests, and pull requests are welcome.
 
-Transform your Unreal Engine workflow with the power of AI through Unreal-MCPython - where Unreal MCP meets intelligent game development! 🚀🎮🤖
+## License
+
+Apache-2.0. See [LICENSE](LICENSE) for details.
