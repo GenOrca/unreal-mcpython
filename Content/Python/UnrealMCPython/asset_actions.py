@@ -6,14 +6,14 @@ import traceback
 
 ASSET_ACTIONS_MODULE = "asset_actions"
 
-def ue_find_asset_by_query(name : str = None, asset_type : str = None) -> str:
+def ue_find_by_query(name : str = None, asset_type : str = None) -> str:
     """
     Returns a JSON list of asset paths under '/Game' matching the given query dict.
     Supported keys: 'name' (substring match), 'asset_type' (Unreal class name, e.g. 'StaticMesh')
     At least one of name or asset_type must be provided.
     """
     if name is None and asset_type is None: # This check is specific to this function's logic
-        return json.dumps({"success": False, "message": "At least one of 'name' or 'asset_type' must be provided for ue_find_asset_by_query.", "assets": []})
+        return json.dumps({"success": False, "message": "At least one of 'name' or 'asset_type' must be provided for ue_find_by_query.", "assets": []})
 
     assets = unreal.EditorAssetLibrary.list_assets('/Game', recursive=True)
     matches = []
@@ -47,7 +47,7 @@ def ue_find_asset_by_query(name : str = None, asset_type : str = None) -> str:
             
     return json.dumps({"success": True, "assets": matches, "message": f"{len(matches)} assets found matching query."})
 
-def ue_get_static_mesh_asset_details(asset_path: str = None) -> str:
+def ue_get_static_mesh_details(asset_path: str = None) -> str:
     """
     Retrieves the bounding box and dimensions of a static mesh asset.
 
@@ -81,5 +81,5 @@ def ue_get_static_mesh_asset_details(asset_path: str = None) -> str:
         return json.dumps({"success": True, "details": details})
     except Exception as e:
         tb_str = traceback.format_exc()
-        unreal.log_error(f"Error in ue_get_static_mesh_asset_details for {asset_path}: {str(e)}\n{tb_str}")
+        unreal.log_error(f"Error in ue_get_static_mesh_details for {asset_path}: {str(e)}\n{tb_str}")
         return json.dumps({"success": False, "message": str(e), "traceback": tb_str})

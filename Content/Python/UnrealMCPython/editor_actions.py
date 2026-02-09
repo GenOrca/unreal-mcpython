@@ -202,7 +202,7 @@ def _replace_meshes_on_actors_components_base(
         "details": details
     }
 
-def ue_replace_materials_on_selected_actors_components(material_to_be_replaced_path: str, new_material_path: str) -> str:
+def ue_replace_mtl_on_selected(material_to_be_replaced_path: str, new_material_path: str) -> str:
     try:
         material_to_replace = _load_material_interface(material_to_be_replaced_path)
         new_material = _load_material_interface(new_material_path)
@@ -261,7 +261,7 @@ def ue_replace_materials_on_selected_actors_components(material_to_be_replaced_p
     except Exception as e:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_replace_materials_on_specified_actors_components(actor_paths: List[str], material_to_be_replaced_path: str, new_material_path: str) -> str:
+def ue_replace_mtl_on_specified(actor_paths: List[str], material_to_be_replaced_path: str, new_material_path: str) -> str:
     try:
         material_to_replace = _load_material_interface(material_to_be_replaced_path)
         new_material = _load_material_interface(new_material_path)
@@ -320,7 +320,7 @@ def ue_replace_materials_on_specified_actors_components(actor_paths: List[str], 
     except Exception as e:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_replace_meshes_on_selected_actors_components(mesh_to_be_replaced_path: str, new_mesh_path: str) -> str:
+def ue_replace_mesh_on_selected(mesh_to_be_replaced_path: str, new_mesh_path: str) -> str:
     """Replaces static meshes on components of selected actors using Unreal's batch API if available."""
     try:
         # Check if mesh_to_be_replaced_path exists (if specified)
@@ -407,16 +407,16 @@ def ue_replace_meshes_on_selected_actors_components(mesh_to_be_replaced_path: st
                 "message": f"Failed to replace mesh. Target mesh '{mesh_to_be_replaced_path}' not found or not replaced on any static mesh components of selected actors."
             })
     except FileNotFoundError as e:
-        unreal.log_error(f"MCP: Asset loading error in ue_replace_meshes_on_selected_actors_components: {e}")
+        unreal.log_error(f"MCP: Asset loading error in ue_replace_mesh_on_selected: {e}")
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
     except TypeError as e:
-        unreal.log_error(f"MCP: Asset type error in ue_replace_meshes_on_selected_actors_components: {e}")
+        unreal.log_error(f"MCP: Asset type error in ue_replace_mesh_on_selected: {e}")
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
     except Exception as e:
-        unreal.log_error(f"MCP: Error in ue_replace_meshes_on_selected_actors_components: {e}\n{traceback.format_exc()}")
+        unreal.log_error(f"MCP: Error in ue_replace_mesh_on_selected: {e}\n{traceback.format_exc()}")
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_replace_meshes_on_specified_actors_components(actor_paths: List[str], mesh_to_be_replaced_path: str, new_mesh_path: str) -> str:
+def ue_replace_mesh_on_specified(actor_paths: List[str], mesh_to_be_replaced_path: str, new_mesh_path: str) -> str:
     """Replaces static meshes on components of specified actors using Unreal's batch API if available."""
     try:
         # Check if mesh_to_be_replaced_path exists (if specified)
@@ -543,16 +543,16 @@ def ue_replace_meshes_on_specified_actors_components(actor_paths: List[str], mes
                 "unchanged_components": unchanged_components_info
             })
     except FileNotFoundError as e:
-        unreal.log_error(f"MCP: Asset loading error in ue_replace_meshes_on_specified_actors_components: {e}")
+        unreal.log_error(f"MCP: Asset loading error in ue_replace_mesh_on_specified: {e}")
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
     except TypeError as e:
-        unreal.log_error(f"MCP: Asset type error in ue_replace_meshes_on_specified_actors_components: {e}")
+        unreal.log_error(f"MCP: Asset type error in ue_replace_mesh_on_specified: {e}")
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
     except Exception as e:
-        unreal.log_error(f"MCP: Error in ue_replace_meshes_on_specified_actors_components: {e}\n{traceback.format_exc()}")
+        unreal.log_error(f"MCP: Error in ue_replace_mesh_on_specified: {e}\n{traceback.format_exc()}")
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_replace_selected_actors_with_blueprint(blueprint_asset_path: str) -> str:
+def ue_replace_selected_with_bp(blueprint_asset_path: str) -> str:
     """Replaces the currently selected actors with new actors spawned from a specified Blueprint asset path using Unreal's official API."""
     import unreal
     import json
@@ -575,7 +575,7 @@ def ue_replace_selected_actors_with_blueprint(blueprint_asset_path: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_get_selected_blueprint_nodes() -> str:
+def ue_get_selected_bp_nodes() -> str:
     """Returns information about currently selected blueprint nodes in the editor."""
     import unreal
     import json
@@ -598,7 +598,7 @@ def ue_get_selected_blueprint_nodes() -> str:
         import traceback
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_get_selected_blueprint_node_infos() -> str:
+def ue_get_selected_bp_node_infos() -> str:
     """Returns compact blueprint node info optimized for LLM token efficiency."""
     import unreal
     import json

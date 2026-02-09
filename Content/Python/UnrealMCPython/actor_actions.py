@@ -19,7 +19,7 @@ def _get_actor_by_label(actor_label: str):
             return actor
     return None
 
-def ue_spawn_actor_from_object(asset_path: str = None, location: list = None) -> str:
+def ue_spawn_from_object(asset_path: str = None, location: list = None) -> str:
     """
     Spawns an actor from the specified asset path at the given location.
     Wrapped in a ScopedEditorTransaction.
@@ -58,7 +58,7 @@ def ue_spawn_actor_from_object(asset_path: str = None, location: list = None) ->
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during spawn: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
 
-def ue_duplicate_selected_actors_with_offset(offset: list) -> str:
+def ue_duplicate_selected(offset: list) -> str:
     """
     Duplicates all selected actors in the editor and applies a position offset to each duplicate.
 
@@ -89,7 +89,7 @@ def ue_duplicate_selected_actors_with_offset(offset: list) -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during duplication: {e}"})
 
-def ue_select_all_actors() -> str:
+def ue_select_all() -> str:
     """
     Selects all actors in the current level.
     """
@@ -100,7 +100,7 @@ def ue_select_all_actors() -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during selection: {e}"})
 
-def ue_invert_actor_selection() -> str:
+def ue_invert_selection() -> str:
     """
     Inverts the selection of actors in the current level.
     """
@@ -111,7 +111,7 @@ def ue_invert_actor_selection() -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during selection inversion: {e}"})
 
-def ue_delete_actor_by_label(actor_label: str) -> str:
+def ue_delete_by_label(actor_label: str) -> str:
     """
     Deletes an actor with the specified name from the current level.
 
@@ -139,7 +139,7 @@ def ue_delete_actor_by_label(actor_label: str) -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during actor deletion: {e}"})
 
-def ue_list_all_actors_with_locations() -> str:
+def ue_list_all_with_locations() -> str:
     """
     Lists all actors in the current level along with their world locations.
 
@@ -161,7 +161,7 @@ def ue_list_all_actors_with_locations() -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during actor listing: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
 
-def ue_spawn_actor_from_class(class_path: str = None, location: list = None, rotation: list = None) -> str:
+def ue_spawn_from_class(class_path: str = None, location: list = None, rotation: list = None) -> str:
     """
     Spawns an actor from the specified class path at the given location and rotation
     using unreal.EditorLevelLibrary.spawn_actor_from_class.
@@ -213,7 +213,7 @@ def ue_spawn_actor_from_class(class_path: str = None, location: list = None, rot
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during spawn_actor_from_class (EditorLevelLibrary): {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
 
-def ue_get_all_actors_details() -> str:
+def ue_get_all_details() -> str:
     """
     Lists all actors in the current level with detailed information including
     label, class, location, rotation, and world-space bounding box.
@@ -255,7 +255,7 @@ def ue_get_all_actors_details() -> str:
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error listing all actors details: {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
 
-def ue_set_actor_transform(actor_label: str = None, location: list = None, rotation: list = None, scale: list = None) -> str:
+def ue_set_transform(actor_label: str = None, location: list = None, rotation: list = None, scale: list = None) -> str:
     """
     Sets the transform (location, rotation, scale) of a specified actor.
     Any component of the transform not provided will remain unchanged.
@@ -304,28 +304,28 @@ def ue_set_actor_transform(actor_label: str = None, location: list = None, rotat
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error setting transform for actor \'{actor_label}\': {str(e)}", "type": e.__name__, "traceback": traceback.format_exc()})
 
-def ue_set_actor_location(actor_label: str = None, location: list = None) -> str:
+def ue_set_location(actor_label: str = None, location: list = None) -> str:
     if actor_label is None:
         return json.dumps({"success": False, "message": "Required parameter 'actor_label' is missing."})
     if location is None:
         return json.dumps({"success": False, "message": "Required parameter 'location' is missing."})
-    return ue_set_actor_transform(actor_label=actor_label, location=location)
+    return ue_set_transform(actor_label=actor_label, location=location)
 
-def ue_set_actor_rotation(actor_label: str = None, rotation: list = None) -> str:
+def ue_set_rotation(actor_label: str = None, rotation: list = None) -> str:
     if actor_label is None:
         return json.dumps({"success": False, "message": "Required parameter 'actor_label' is missing."})
     if rotation is None:
         return json.dumps({"success": False, "message": "Required parameter 'rotation' is missing."})
-    return ue_set_actor_transform(actor_label=actor_label, rotation=rotation)
+    return ue_set_transform(actor_label=actor_label, rotation=rotation)
 
-def ue_set_actor_scale(actor_label: str = None, scale: list = None) -> str:
+def ue_set_scale(actor_label: str = None, scale: list = None) -> str:
     if actor_label is None:
         return json.dumps({"success": False, "message": "Required parameter 'actor_label' is missing."})
     if scale is None:
         return json.dumps({"success": False, "message": "Required parameter 'scale' is missing."})
-    return ue_set_actor_transform(actor_label=actor_label, scale=scale)
+    return ue_set_transform(actor_label=actor_label, scale=scale)
 
-def ue_spawn_actor_on_surface_with_raycast(
+def ue_spawn_on_surface_raycast(
     asset_or_class_path: str = None,
     ray_start: list = None,
     ray_end: list = None,
@@ -441,7 +441,7 @@ def ue_spawn_actor_on_surface_with_raycast(
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during spawn_actor_on_surface_with_raycast: {str(e)}", "traceback": traceback.format_exc()})
 
-def ue_get_actors_in_editor_view_frustum() -> str:
+def ue_get_in_view_frustum() -> str:
     """
     Retrieves a list of actors that are potentially visible within the active editor viewport's frustum.
 
@@ -543,4 +543,4 @@ def ue_get_actors_in_editor_view_frustum() -> str:
         return json.dumps({"success": True, "visible_actors": visible_actors_details})
 
     except Exception as e:
-        return json.dumps({"success": False, "message": f"Error in ue_get_actors_in_editor_view_frustum: {str(e)}", "type": type(e).__name__})
+        return json.dumps({"success": False, "message": f"Error in ue_get_in_view_frustum: {str(e)}", "type": type(e).__name__})
