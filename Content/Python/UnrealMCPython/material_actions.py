@@ -232,7 +232,7 @@ def ue_recompile_material(material_path: str = None) -> str:
             "traceback": traceback.format_exc()
         })
 
-def ue_get_material_instance_scalar_parameter_value(instance_path: str = None, parameter_name: str = None) -> str:
+def ue_get_material_instance_scalar_parameter(instance_path: str = None, parameter_name: str = None) -> str:
     """
     Gets the current scalar (float) parameter value from a Material Instance Constant.
     Returns JSON string.
@@ -269,7 +269,7 @@ def ue_get_material_instance_scalar_parameter_value(instance_path: str = None, p
             "traceback": traceback.format_exc()
         })
 
-def ue_set_material_instance_scalar_parameter_value(instance_path: str = None, parameter_name: str = None, value: float = None) -> str:
+def ue_set_material_instance_scalar_parameter(instance_path: str = None, parameter_name: str = None, value: float = None) -> str:
     """
     Sets the scalar (float) parameter value for a Material Instance Constant.
     Returns JSON string.
@@ -305,7 +305,7 @@ def ue_set_material_instance_scalar_parameter_value(instance_path: str = None, p
             "traceback": traceback.format_exc()
         })
 
-def ue_get_material_instance_vector_parameter_value(instance_path: str = None, parameter_name: str = None) -> str:
+def ue_get_material_instance_vector_parameter(instance_path: str = None, parameter_name: str = None) -> str:
     """Gets a vector parameter from a Material Instance. Returns JSON string."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
@@ -322,7 +322,7 @@ def ue_get_material_instance_vector_parameter_value(instance_path: str = None, p
     except Exception as e:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_set_material_instance_vector_parameter_value(instance_path: str = None, parameter_name: str = None, value: list = None) -> str:
+def ue_set_material_instance_vector_parameter(instance_path: str = None, parameter_name: str = None, value: list = None) -> str:
     """Sets a vector parameter on a Material Instance. Expects value as [R,G,B,A]. Returns JSON string."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
@@ -347,7 +347,7 @@ def ue_set_material_instance_vector_parameter_value(instance_path: str = None, p
     except Exception as e:
         return json.dumps({"success": False, "message": str(e), "traceback": traceback.format_exc()})
 
-def ue_get_material_instance_texture_parameter_value(instance_path: str = None, parameter_name: str = None) -> str:
+def ue_get_material_instance_texture_parameter(instance_path: str = None, parameter_name: str = None) -> str:
     """Gets a texture parameter from a Material Instance. Returns JSON string with texture path."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
@@ -375,7 +375,7 @@ def ue_get_material_instance_texture_parameter_names(instance_path):
     except Exception as e:
         return []
     
-def ue_set_material_instance_texture_parameter_value(instance_path: str = None, parameter_name: str = None, texture_path: Optional[str] = None) -> str:
+def ue_set_material_instance_texture_parameter(instance_path: str = None, parameter_name: str = None, texture_path: Optional[str] = None) -> str:
     """Sets a texture parameter on a Material Instance. Provide texture asset path. Returns JSON string."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
@@ -451,7 +451,7 @@ def ue_get_material_instance_static_switch_parameters(instance_path):
         print(f"Error getting static switch parameters: {e}")
         return []
 
-def ue_get_material_instance_static_switch_parameter_value(instance_path: str = None, parameter_name: str = None) -> str:
+def ue_get_material_instance_static_switch_parameter(instance_path: str = None, parameter_name: str = None) -> str:
     """Gets a static switch parameter from a Material Instance. Returns JSON string."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
@@ -488,7 +488,7 @@ def ue_get_material_instance_static_switch_parameter_value(instance_path: str = 
             "available_parameters": available_params
         })
 
-def ue_set_material_instance_static_switch_parameter_value(instance_path: str = None, parameter_name: str = None, value: bool = None) -> str:
+def ue_set_material_instance_static_switch_parameter(instance_path: str = None, parameter_name: str = None, value: bool = None) -> str:
     """Sets a static switch parameter on a Material Instance. Returns JSON string."""
     if instance_path is None:
         return json.dumps({"success": False, "message": "Required parameter 'instance_path' is missing."})
