@@ -1,0 +1,112 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VER="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version consistency
+        run: |
+          VER="${{ steps.version.outputs.ver }}"
+
+          # Extract VersionName from .uplugin (JSON)
+          UPLUGIN_VER=$(python3 -c "
+          import json, sys
+          with open('UnrealMCPython.uplugin') as f:
+              data = json.load(f)
+          print(data['VersionName'])
+          ")
+
+          # Extract version from pyproject.toml
+          PYPROJECT_VER=$(python3 -c "
+          import re, sys
+          with open('mcp-server/pyproject.toml') as f:
+              text = f.read()
+          m = re.search(r'^version\s*=\s*\"([^\"]+)\"', text, re.MULTILINE)
+          if not m:
+              print('NOT_FOUND', file=sys.stderr); sys.exit(1)
+          print(m.group(1))
+          ")
+
+          echo "Tag version:      $VER"
+          echo "uplugin version:  $UPLUGIN_VER"
+          echo "pyproject version: $PYPROJECT_VER"
+
+          FAIL=0
+          if [ "$UPLUGIN_VER" != "$VER" ]; then
+            echo "::error::uplugin VersionName ($UPLUGIN_VER) does not match tag ($VER)"
+            FAIL=1
+          fi
+          if [ "$PYPROJECT_VER" != "$VER" ]; then
+            echo "::error::pyproject.toml version ($PYPROJECT_VER) does not match tag ($VER)"
+            FAIL=1
+          fi
+          if [ "$FAIL" -ne 0 ]; then exit 1; fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate tool mappings
+        run: python mcp-server/validate_tools.py
+
+      - name: Package zip
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          ZIP_NAME="UnrealMCPython-${TAG}.zip"
+          STAGE_DIR=$(mktemp -d)
+          TARGET="$STAGE_DIR/UnrealMCPython"
+          mkdir -p "$TARGET"
+
+          # Copy included directories
+          for dir in Source Content Config Resources Docs mcp-server; do
+            if [ -d "$dir" ]; then
+              cp -r "$dir" "$TARGET/"
+            fi
+          done
+
+          # Copy included files
+          for file in UnrealMCPython.uplugin README.md LICENSE.txt .gitignore; do
+            if [ -f "$file" ]; then
+              cp "$file" "$TARGET/"
+            fi
+          done
+
+          # Remove excluded patterns from the copy
+          find "$TARGET" -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+          find "$TARGET" -type d -name ".git" -exec rm -rf {} + 2>/dev/null || true
+          find "$TARGET" -name "*.pyc" -delete 2>/dev/null || true
+
+          # Create zip
+          (cd "$STAGE_DIR" && zip -r "$GITHUB_WORKSPACE/$ZIP_NAME" UnrealMCPython)
+          echo "ZIP_NAME=$ZIP_NAME" >> "$GITHUB_ENV"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.version.outputs.tag }}" \
+            "$ZIP_NAME" \
+            --generate-notes \
+            --title "UnrealMCPython ${{ steps.version.outputs.tag }}"
