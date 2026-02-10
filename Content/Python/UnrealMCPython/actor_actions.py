@@ -441,6 +441,113 @@ def ue_spawn_on_surface_raycast(
     except Exception as e:
         return json.dumps({"success": False, "message": f"Error during spawn_actor_on_surface_with_raycast: {str(e)}", "traceback": traceback.format_exc()})
 
+def _serialize_ue_value(value):
+    """Convert an Unreal Engine value to a JSON-safe Python type."""
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, unreal.Vector):
+        return [value.x, value.y, value.z]
+    if isinstance(value, unreal.Rotator):
+        return [value.pitch, value.yaw, value.roll]
+    if isinstance(value, unreal.LinearColor):
+        return [value.r, value.g, value.b, value.a]
+    if isinstance(value, unreal.Name):
+        return str(value)
+    if isinstance(value, unreal.Text):
+        return str(value)
+    # Fallback for enums and other types
+    return str(value)
+
+def _convert_value_for_property(current_value, new_value):
+    """Convert a JSON value to the appropriate Unreal type based on the current property value's type."""
+    if isinstance(current_value, unreal.Vector):
+        if isinstance(new_value, (list, tuple)) and len(new_value) == 3:
+            return unreal.Vector(float(new_value[0]), float(new_value[1]), float(new_value[2]))
+    elif isinstance(current_value, unreal.Rotator):
+        if isinstance(new_value, (list, tuple)) and len(new_value) == 3:
+            return unreal.Rotator(float(new_value[0]), float(new_value[1]), float(new_value[2]))
+    elif isinstance(current_value, unreal.LinearColor):
+        if isinstance(new_value, (list, tuple)) and len(new_value) == 4:
+            return unreal.LinearColor(float(new_value[0]), float(new_value[1]), float(new_value[2]), float(new_value[3]))
+    elif isinstance(current_value, unreal.Name):
+        return unreal.Name(str(new_value))
+    elif isinstance(current_value, bool):
+        return bool(new_value)
+    elif isinstance(current_value, int):
+        return int(new_value)
+    elif isinstance(current_value, float):
+        return float(new_value)
+    elif isinstance(current_value, str):
+        return str(new_value)
+    # Fallback: return as-is and let UE attempt conversion
+    return new_value
+
+def ue_get_property(actor_label: str = None, property_name: str = None) -> str:
+    """
+    Gets a property value from an actor using get_editor_property().
+
+    :param actor_label: Label of the actor to query.
+    :param property_name: UE property name to get.
+    :return: JSON string with the property value.
+    """
+    if actor_label is None:
+        return json.dumps({"success": False, "message": "Required parameter 'actor_label' is missing."})
+    if property_name is None:
+        return json.dumps({"success": False, "message": "Required parameter 'property_name' is missing."})
+
+    try:
+        actor = _get_actor_by_label(actor_label)
+        if not actor:
+            return json.dumps({"success": False, "message": f"Actor with label '{actor_label}' not found."})
+
+        value = actor.get_editor_property(property_name)
+        serialized = _serialize_ue_value(value)
+
+        result = {"success": True, "property_name": property_name, "value": serialized}
+        # Add type hint when fallback string conversion was used
+        if not isinstance(value, (type(None), bool, int, float, str)) and isinstance(serialized, str):
+            if not isinstance(value, (unreal.Vector, unreal.Rotator, unreal.LinearColor, unreal.Name, unreal.Text)):
+                result["value_type"] = type(value).__name__
+        return json.dumps(result)
+    except Exception as e:
+        return json.dumps({"success": False, "message": f"Error getting property '{property_name}' on actor '{actor_label}': {str(e)}", "type": type(e).__name__, "traceback": traceback.format_exc()})
+
+def ue_set_property(actor_label: str = None, property_name: str = None, value=None) -> str:
+    """
+    Sets a property value on an actor using set_editor_property().
+    Wrapped in a ScopedEditorTransaction for Undo support.
+
+    :param actor_label: Label of the actor to modify.
+    :param property_name: UE property name to set.
+    :param value: The value to set (str, int, float, bool, list, or None).
+    :return: JSON string indicating success or failure.
+    """
+    if actor_label is None:
+        return json.dumps({"success": False, "message": "Required parameter 'actor_label' is missing."})
+    if property_name is None:
+        return json.dumps({"success": False, "message": "Required parameter 'property_name' is missing."})
+
+    transaction_description = f"MCP: Set Property '{property_name}' on actor '{actor_label}'"
+    try:
+        actor = _get_actor_by_label(actor_label)
+        if not actor:
+            return json.dumps({"success": False, "message": f"Actor with label '{actor_label}' not found."})
+
+        # Try to read current value to determine the target type
+        try:
+            current_value = actor.get_editor_property(property_name)
+            converted_value = _convert_value_for_property(current_value, value)
+        except Exception:
+            # If we can't read the current value, pass the raw value through
+            converted_value = value
+
+        with unreal.ScopedEditorTransaction(transaction_description) as trans:
+            actor.set_editor_property(property_name, converted_value)
+
+        return json.dumps({"success": True, "message": f"Property '{property_name}' set on actor '{actor_label}'."})
+    except Exception as e:
+        return json.dumps({"success": False, "message": f"Error setting property '{property_name}' on actor '{actor_label}': {str(e)}", "type": type(e).__name__, "traceback": traceback.format_exc()})
+
 def ue_get_in_view_frustum() -> str:
     """
     Retrieves a list of actors that are potentially visible within the active editor viewport's frustum.

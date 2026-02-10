@@ -195,3 +195,30 @@ async def spawn_on_surface_raycast(
 async def get_in_view_frustum() -> dict:
     """Gets actors estimated to be in the editor view frustum."""
     return await send_unreal_action(ACTOR_ACTIONS_MODULE, {})
+
+@actor_mcp.tool(
+    name="get_property",
+    description="Gets an Unreal Engine property value from an actor by its label. Uses get_editor_property() internally. Returns the property value serialized to JSON-safe types (vectors become [x,y,z], rotators become [pitch,yaw,roll], etc.).",
+    tags={"unreal", "actor", "property", "query"}
+)
+async def get_property(
+    actor_label: Annotated[str, Field(description="The label of the actor to query (as seen in the World Outliner).")],
+    property_name: Annotated[str, Field(description="The UE property name to get (e.g., 'bHidden', 'RootComponent', 'ID').")]
+) -> dict:
+    """Gets a property value from an actor."""
+    params = {"actor_label": actor_label, "property_name": property_name}
+    return await send_unreal_action(ACTOR_ACTIONS_MODULE, params)
+
+@actor_mcp.tool(
+    name="set_property",
+    description="Sets an Unreal Engine property value on an actor by its label. Uses set_editor_property() internally with Undo support. Automatically converts JSON types to UE types: str for FName/FString/FText, int/float for numeric, bool for boolean, list of 3 floats for FVector/FRotator, list of 4 floats for FLinearColor.",
+    tags={"unreal", "actor", "property", "level-editing"}
+)
+async def set_property(
+    actor_label: Annotated[str, Field(description="The label of the actor to modify (as seen in the World Outliner).")],
+    property_name: Annotated[str, Field(description="The UE property name to set (e.g., 'bHidden', 'ID').")],
+    value: Annotated[object, Field(description="The value to set. Accepts str, int, float, bool, list, or null. Lists of 3 floats map to FVector/FRotator, lists of 4 floats map to FLinearColor.")]
+) -> dict:
+    """Sets a property value on an actor."""
+    params = {"actor_label": actor_label, "property_name": property_name, "value": value}
+    return await send_unreal_action(ACTOR_ACTIONS_MODULE, params)
