@@ -325,6 +325,100 @@ def ue_set_scale(actor_label: str = None, scale: list = None) -> str:
         return json.dumps({"success": False, "message": "Required parameter 'scale' is missing."})
     return ue_set_transform(actor_label=actor_label, scale=scale)
 
+def ue_line_trace(
+    ray_start: list = None,
+    ray_end: list = None,
+    trace_channel: str = 'Visibility',
+    actors_to_ignore_labels: list = None,
+    trace_complex: bool = True
+) -> str:
+    """
+    Performs a line trace (raycast) and returns hit information without spawning anything.
+
+    :param ray_start: [x, y, z] start of the ray.
+    :param ray_end: [x, y, z] end of the ray.
+    :param trace_channel: 'Visibility' or 'Camera'. Defaults to 'Visibility'.
+    :param actors_to_ignore_labels: Optional list of actor labels to ignore.
+    :param trace_complex: Whether to use complex collision. Defaults to True.
+    :return: JSON string with hit details.
+    """
+    if ray_start is None:
+        return json.dumps({"success": False, "message": "Required parameter 'ray_start' is missing."})
+    if ray_end is None:
+        return json.dumps({"success": False, "message": "Required parameter 'ray_end' is missing."})
+
+    if len(ray_start) != 3 or len(ray_end) != 3:
+        return json.dumps({"success": False, "message": "Invalid vector format. Expected lists of 3 floats."})
+
+    try:
+        start_loc = unreal.Vector(float(ray_start[0]), float(ray_start[1]), float(ray_start[2]))
+        end_loc = unreal.Vector(float(ray_end[0]), float(ray_end[1]), float(ray_end[2]))
+
+        actors_to_ignore_objects = []
+        if actors_to_ignore_labels:
+            for label in actors_to_ignore_labels:
+                actor = _get_actor_by_label(label)
+                if actor:
+                    actors_to_ignore_objects.append(actor)
+
+        trace_type_query = unreal.TraceTypeQuery.TRACE_TYPE_QUERY1
+        if trace_channel.lower() == 'camera':
+            trace_type_query = unreal.TraceTypeQuery.TRACE_TYPE_QUERY2
+
+        hit_result = unreal.SystemLibrary.line_trace_single(
+            world_context_object=unreal.EditorLevelLibrary.get_editor_world(),
+            start=start_loc,
+            end=end_loc,
+            trace_channel=trace_type_query,
+            trace_complex=trace_complex,
+            actors_to_ignore=actors_to_ignore_objects,
+            draw_debug_type=unreal.DrawDebugTrace.FOR_DURATION,
+            ignore_self=True
+        )
+
+        if not hit_result:
+            return json.dumps({"success": True, "hit": False, "message": "Raycast did not hit any surface."})
+
+        (
+            blocking_hit,
+            initial_overlap,
+            time,
+            distance,
+            location,
+            impact_point,
+            normal,
+            impact_normal,
+            phys_mat,
+            hit_actor,
+            hit_component,
+            hit_bone_name,
+            bone_name,
+            hit_item,
+            element_index,
+            face_index,
+            trace_start,
+            trace_end
+        ) = hit_result.to_tuple()
+
+        if not blocking_hit:
+            return json.dumps({"success": True, "hit": False, "message": "Raycast did not hit any blocking surface."})
+
+        result = {
+            "success": True,
+            "hit": True,
+            "location": [location.x, location.y, location.z],
+            "impact_point": [impact_point.x, impact_point.y, impact_point.z],
+            "normal": [normal.x, normal.y, normal.z],
+            "impact_normal": [impact_normal.x, impact_normal.y, impact_normal.z],
+            "distance": distance,
+            "hit_actor_label": hit_actor.get_actor_label() if hit_actor else None,
+            "hit_bone_name": str(hit_bone_name) if hit_bone_name and str(hit_bone_name) != "None" else None,
+        }
+        return json.dumps(result)
+
+    except Exception as e:
+        return json.dumps({"success": False, "message": f"Error during line_trace: {str(e)}", "traceback": traceback.format_exc()})
+
 def ue_spawn_on_surface_raycast(
     asset_or_class_path: str = None,
     ray_start: list = None,

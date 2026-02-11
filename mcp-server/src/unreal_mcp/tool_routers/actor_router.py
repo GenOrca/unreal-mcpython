@@ -157,6 +157,28 @@ async def set_scale(
     return await send_unreal_action(ACTOR_ACTIONS_MODULE, params)
 
 @actor_mcp.tool(
+    name="line_trace",
+    description="Performs a line trace (raycast) in the Unreal Engine scene and returns hit information (location, normal, hit actor, etc.) without spawning anything. Useful for probing surfaces, checking line-of-sight, or finding ground positions.",
+    tags={"unreal", "actor", "raycast", "trace", "query"}
+)
+async def line_trace(
+    ray_start: Annotated[List[float], Field(description="List of 3 floats for ray start location [X, Y, Z].")],
+    ray_end: Annotated[List[float], Field(description="List of 3 floats for ray end location [X, Y, Z].")],
+    trace_channel: Annotated[str, Field(description="Trace channel: 'Visibility' or 'Camera'. Defaults to 'Visibility'.")] = 'Visibility',
+    actors_to_ignore_labels: Annotated[Optional[List[str]], Field(description="Optional list of actor labels to ignore during the trace.")] = None,
+    trace_complex: Annotated[bool, Field(description="Whether to use complex collision geometry. Defaults to True.")] = True,
+) -> dict:
+    """Performs a line trace and returns hit results."""
+    params = {
+        "ray_start": ray_start,
+        "ray_end": ray_end,
+        "trace_channel": trace_channel,
+        "actors_to_ignore_labels": actors_to_ignore_labels,
+        "trace_complex": trace_complex,
+    }
+    return await send_unreal_action(ACTOR_ACTIONS_MODULE, params)
+
+@actor_mcp.tool(
     name="spawn_on_surface_raycast",
     description="Spawns an actor on a surface detected by a raycast in Unreal. Can spawn from an asset or class path, align to surface normal, apply a location offset, and ignore specified actors.",
     tags={"unreal", "actor", "spawn", "raycast", "surface", "level-editing"}
