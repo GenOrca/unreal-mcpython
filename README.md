@@ -19,9 +19,11 @@ MCP (Model Context Protocol) integration for Unreal Engine. Connects AI assistan
 
 **Material System** — Material instance parameters (scalar, vector, texture, static switch). Expression creation and connection. Recompilation.
 
-**Editor Tools** — Selection management. Material/mesh replacement on actors. Blueprint node inspection.
+**Editor Tools** — Selection management. Material/mesh replacement on actors. Blueprint node inspection. Line-trace raycasting. Generic property access.
 
 **Blueprint Node Inspection** — Select nodes in the Blueprint Editor and query their structure (pin types, connections, default values) via MCP. The AI assistant can read your Blueprint graph and suggest edits or debug issues without screenshots.
+
+**Behavior Tree & Blackboard** — Create, read, and build Behavior Trees from JSON. Manage Blackboard assets and keys. Build complete BT hierarchies in a single call.
 
 ## Installation
 
@@ -105,6 +107,8 @@ Config file locations:
 "Find all static meshes with 'rock' in the name"
 "Set the base color of MI_Ground to dark brown"
 "Explain what the selected Blueprint nodes do"
+"Create a Behavior Tree with a Selector root, two Sequences, and MoveTo/Wait tasks"
+"List all available BT decorator classes"
 ```
 
 ## Troubleshooting
