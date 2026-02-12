@@ -50,6 +50,10 @@ public class UnrealMCPython : ModuleRules
 				"AssetTools",
 				"BlueprintGraph",
 				"Kismet",
+				"AIModule",
+				"GameplayTasks",
+				"AIGraph",
+				"BehaviorTreeEditor",
 			}
 			);
 		
