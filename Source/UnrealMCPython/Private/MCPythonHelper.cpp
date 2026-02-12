@@ -5,6 +5,18 @@
 #include "Subsystems/AssetEditorSubsystem.h"
 #include "Toolkits/AssetEditorToolkit.h"
 #include "BlueprintEditor.h"
+#include "BehaviorTree/BehaviorTree.h"
+#include "BehaviorTree/BlackboardData.h"
+#include "BehaviorTree/BTCompositeNode.h"
+#include "BehaviorTree/BTTaskNode.h"
+#include "BehaviorTree/BTDecorator.h"
+#include "BehaviorTree/BTService.h"
+#include "BehaviorTreeEditor.h"
+#include "BehaviorTreeGraphNode.h"
+#include "Dom/JsonObject.h"
+#include "Dom/JsonValue.h"
+#include "Serialization/JsonWriter.h"
+#include "Serialization/JsonSerializer.h"
 
 TArray<UObject*> UMCPythonHelper::GetAllEditedAssets()
 {
@@ -98,4 +110,356 @@ TArray<FMCPythonBlueprintNodeInfo> UMCPythonHelper::GetSelectedBlueprintNodeInfo
         }
     }
     return Result;
+}
+
+// ─── Behavior Tree Helpers (internal) ────────────────────────────────────────
+
+static FMCPythonBTNodeInfo SerializeBTNode(UBTCompositeNode* Node)
+{
+    FMCPythonBTNodeInfo Info;
+    if (!Node) return Info;
+
+    Info.NodeName = Node->GetNodeName();
+    Info.NodeClass = Node->GetClass()->GetName();
+
+    // Services on this composite node
+    for (UBTService* Svc : Node->Services)
+    {
+        if (Svc)
+        {
+            Info.ServiceClasses.Add(Svc->GetClass()->GetName());
+            Info.ServiceNames.Add(Svc->GetNodeName());
+        }
+    }
+
+    // Children
+    for (const FBTCompositeChild& Child : Node->Children)
+    {
+        if (Child.ChildComposite)
+        {
+            FMCPythonBTNodeInfo ChildInfo = SerializeBTNode(Child.ChildComposite);
+            // Decorators are stored per-child-connection
+            for (UBTDecorator* Dec : Child.Decorators)
+            {
+                if (Dec)
+                {
+                    ChildInfo.DecoratorClasses.Add(Dec->GetClass()->GetName());
+                    ChildInfo.DecoratorNames.Add(Dec->GetNodeName());
+                }
+            }
+            Info.Children.Add(ChildInfo);
+        }
+        else if (Child.ChildTask)
+        {
+            FMCPythonBTNodeInfo TaskInfo;
+            TaskInfo.NodeName = Child.ChildTask->GetNodeName();
+            TaskInfo.NodeClass = Child.ChildTask->GetClass()->GetName();
+
+            // Decorators on this child connection
+            for (UBTDecorator* Dec : Child.Decorators)
+            {
+                if (Dec)
+                {
+                    TaskInfo.DecoratorClasses.Add(Dec->GetClass()->GetName());
+                    TaskInfo.DecoratorNames.Add(Dec->GetNodeName());
+                }
+            }
+
+            // Services on task node
+            for (UBTService* Svc : Child.ChildTask->Services)
+            {
+                if (Svc)
+                {
+                    TaskInfo.ServiceClasses.Add(Svc->GetClass()->GetName());
+                    TaskInfo.ServiceNames.Add(Svc->GetNodeName());
+                }
+            }
+
+            Info.Children.Add(TaskInfo);
+        }
+    }
+
+    return Info;
+}
+
+static UBTNode* FindNodeByName(UBTCompositeNode* Root, const FString& Name)
+{
+    if (!Root) return nullptr;
+
+    // Check root itself
+    if (Root->GetNodeName() == Name || Root->GetName() == Name)
+        return Root;
+
+    // Check root's services
+    for (UBTService* Svc : Root->Services)
+    {
+        if (Svc && (Svc->GetNodeName() == Name || Svc->GetName() == Name))
+            return Svc;
+    }
+
+    // Check children
+    for (const FBTCompositeChild& Child : Root->Children)
+    {
+        // Check decorators on this child
+        for (UBTDecorator* Dec : Child.Decorators)
+        {
+            if (Dec && (Dec->GetNodeName() == Name || Dec->GetName() == Name))
+                return Dec;
+        }
+
+        if (Child.ChildComposite)
+        {
+            UBTNode* Found = FindNodeByName(Child.ChildComposite, Name);
+            if (Found) return Found;
+        }
+        else if (Child.ChildTask)
+        {
+            if (Child.ChildTask->GetNodeName() == Name || Child.ChildTask->GetName() == Name)
+                return Child.ChildTask;
+
+            // Check task's services
+            for (UBTService* Svc : Child.ChildTask->Services)
+            {
+                if (Svc && (Svc->GetNodeName() == Name || Svc->GetName() == Name))
+                    return Svc;
+            }
+        }
+    }
+
+    return nullptr;
+}
+
+// ─── JSON serialization for BT tree ─────────────────────────────────────────
+
+static TSharedPtr<FJsonObject> BTNodeInfoToJson(const FMCPythonBTNodeInfo& Info)
+{
+    TSharedPtr<FJsonObject> Obj = MakeShareable(new FJsonObject());
+    Obj->SetStringField(TEXT("node_name"), Info.NodeName);
+    Obj->SetStringField(TEXT("node_class"), Info.NodeClass);
+
+    if (Info.DecoratorClasses.Num() > 0)
+    {
+        TArray<TSharedPtr<FJsonValue>> DecArr;
+        for (int32 i = 0; i < Info.DecoratorClasses.Num(); ++i)
+        {
+            TSharedPtr<FJsonObject> DecObj = MakeShareable(new FJsonObject());
+            DecObj->SetStringField(TEXT("class"), Info.DecoratorClasses[i]);
+            if (Info.DecoratorNames.IsValidIndex(i))
+                DecObj->SetStringField(TEXT("name"), Info.DecoratorNames[i]);
+            DecArr.Add(MakeShareable(new FJsonValueObject(DecObj)));
+        }
+        Obj->SetArrayField(TEXT("decorators"), DecArr);
+    }
+
+    if (Info.ServiceClasses.Num() > 0)
+    {
+        TArray<TSharedPtr<FJsonValue>> SvcArr;
+        for (int32 i = 0; i < Info.ServiceClasses.Num(); ++i)
+        {
+            TSharedPtr<FJsonObject> SvcObj = MakeShareable(new FJsonObject());
+            SvcObj->SetStringField(TEXT("class"), Info.ServiceClasses[i]);
+            if (Info.ServiceNames.IsValidIndex(i))
+                SvcObj->SetStringField(TEXT("name"), Info.ServiceNames[i]);
+            SvcArr.Add(MakeShareable(new FJsonValueObject(SvcObj)));
+        }
+        Obj->SetArrayField(TEXT("services"), SvcArr);
+    }
+
+    if (Info.Children.Num() > 0)
+    {
+        TArray<TSharedPtr<FJsonValue>> ChildArr;
+        for (const FMCPythonBTNodeInfo& Child : Info.Children)
+        {
+            ChildArr.Add(MakeShareable(new FJsonValueObject(BTNodeInfoToJson(Child))));
+        }
+        Obj->SetArrayField(TEXT("children"), ChildArr);
+    }
+
+    return Obj;
+}
+
+// ─── Behavior Tree UFUNCTION Implementations ────────────────────────────────
+
+FString UMCPythonHelper::GetBehaviorTreeStructure(UBehaviorTree* BehaviorTree)
+{
+    if (!BehaviorTree || !BehaviorTree->RootNode)
+    {
+        return TEXT("{\"success\":false,\"message\":\"Invalid BehaviorTree or empty tree.\"}");
+    }
+
+    FMCPythonBTNodeInfo RootInfo = SerializeBTNode(BehaviorTree->RootNode);
+    TSharedPtr<FJsonObject> ResultObj = MakeShareable(new FJsonObject());
+    ResultObj->SetBoolField(TEXT("success"), true);
+    ResultObj->SetObjectField(TEXT("root"), BTNodeInfoToJson(RootInfo));
+
+    FString OutputString;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
+    FJsonSerializer::Serialize(ResultObj.ToSharedRef(), Writer);
+    return OutputString;
+}
+
+bool UMCPythonHelper::SetBehaviorTreeBlackboard(UBehaviorTree* BehaviorTree, UBlackboardData* BlackboardData)
+{
+    if (!BehaviorTree) return false;
+
+    BehaviorTree->BlackboardAsset = BlackboardData;
+    BehaviorTree->MarkPackageDirty();
+    return true;
+}
+
+FString UMCPythonHelper::GetBehaviorTreeNodeDetails(UBehaviorTree* BehaviorTree, const FString& NodeName)
+{
+    if (!BehaviorTree || !BehaviorTree->RootNode)
+    {
+        return TEXT("{\"success\":false,\"message\":\"Invalid BehaviorTree or empty tree.\"}");
+    }
+
+    UBTNode* FoundNode = FindNodeByName(BehaviorTree->RootNode, NodeName);
+    if (!FoundNode)
+    {
+        TSharedPtr<FJsonObject> ErrObj = MakeShareable(new FJsonObject());
+        ErrObj->SetBoolField(TEXT("success"), false);
+        ErrObj->SetStringField(TEXT("message"), FString::Printf(TEXT("Node '%s' not found in behavior tree."), *NodeName));
+        FString ErrStr;
+        auto ErrWriter = TJsonWriterFactory<>::Create(&ErrStr);
+        FJsonSerializer::Serialize(ErrObj.ToSharedRef(), ErrWriter);
+        return ErrStr;
+    }
+
+    TSharedPtr<FJsonObject> JsonObj = MakeShareable(new FJsonObject());
+    JsonObj->SetBoolField(TEXT("success"), true);
+    JsonObj->SetStringField(TEXT("node_name"), FoundNode->GetNodeName());
+    JsonObj->SetStringField(TEXT("node_class"), FoundNode->GetClass()->GetName());
+
+    // Serialize EditAnywhere properties
+    TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject());
+    for (TFieldIterator<FProperty> PropIt(FoundNode->GetClass()); PropIt; ++PropIt)
+    {
+        FProperty* Prop = *PropIt;
+        if (!Prop->HasAnyPropertyFlags(CPF_Edit)) continue;
+
+        FString ValueStr;
+        const void* ValueAddr = Prop->ContainerPtrToValuePtr<void>(FoundNode);
+        Prop->ExportText_Direct(ValueStr, ValueAddr, nullptr, FoundNode, PPF_None);
+        PropsObj->SetStringField(Prop->GetName(), ValueStr);
+    }
+    JsonObj->SetObjectField(TEXT("properties"), PropsObj);
+
+    // If composite node, include services and child count
+    UBTCompositeNode* CompNode = Cast<UBTCompositeNode>(FoundNode);
+    if (CompNode)
+    {
+        JsonObj->SetNumberField(TEXT("child_count"), CompNode->Children.Num());
+
+        TArray<TSharedPtr<FJsonValue>> ServicesArr;
+        for (UBTService* Svc : CompNode->Services)
+        {
+            if (Svc)
+            {
+                TSharedPtr<FJsonObject> SvcObj = MakeShareable(new FJsonObject());
+                SvcObj->SetStringField(TEXT("name"), Svc->GetNodeName());
+                SvcObj->SetStringField(TEXT("class"), Svc->GetClass()->GetName());
+                ServicesArr.Add(MakeShareable(new FJsonValueObject(SvcObj)));
+            }
+        }
+        if (ServicesArr.Num() > 0)
+        {
+            JsonObj->SetArrayField(TEXT("services"), ServicesArr);
+        }
+    }
+
+    FString OutputString;
+    TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&OutputString);
+    FJsonSerializer::Serialize(JsonObj.ToSharedRef(), Writer);
+    return OutputString;
+}
+
+FString UMCPythonHelper::GetSelectedBTNodes()
+{
+    if (!GEditor)
+    {
+        return TEXT("{\"success\":false,\"message\":\"GEditor is null.\"}");
+    }
+
+    auto* Subsystem = GEditor->GetEditorSubsystem<UAssetEditorSubsystem>();
+    if (!Subsystem)
+    {
+        return TEXT("{\"success\":false,\"message\":\"AssetEditorSubsystem not available.\"}");
+    }
+
+    for (UObject* Asset : Subsystem->GetAllEditedAssets())
+    {
+        UBehaviorTree* BT = Cast<UBehaviorTree>(Asset);
+        if (!BT) continue;
+
+        IAssetEditorInstance* EditorInstance = Subsystem->FindEditorForAsset(Asset, false);
+        FAssetEditorToolkit* EditorToolkit = static_cast<FAssetEditorToolkit*>(EditorInstance);
+        if (!EditorToolkit) continue;
+
+        TSharedPtr<SDockTab> Tab = EditorToolkit->GetTabManager()->GetOwnerTab();
+        if (!Tab.IsValid() || !Tab->IsForeground()) continue;
+
+        FBehaviorTreeEditor* BTEditor = static_cast<FBehaviorTreeEditor*>(EditorToolkit);
+        if (!BTEditor) continue;
+
+        FGraphPanelSelectionSet SelectedNodes = BTEditor->GetSelectedNodes();
+
+        TArray<TSharedPtr<FJsonValue>> NodesArr;
+        for (UObject* NodeObj : SelectedNodes)
+        {
+            UBehaviorTreeGraphNode* GraphNode = Cast<UBehaviorTreeGraphNode>(NodeObj);
+            if (!GraphNode) continue;
+
+            UBTNode* BTNode = Cast<UBTNode>(GraphNode->NodeInstance);
+            if (!BTNode) continue;
+
+            TSharedPtr<FJsonObject> NodeJson = MakeShareable(new FJsonObject());
+            NodeJson->SetStringField(TEXT("node_name"), BTNode->GetNodeName());
+            NodeJson->SetStringField(TEXT("node_class"), BTNode->GetClass()->GetName());
+
+            // Classify node type
+            FString NodeType;
+            if (Cast<UBTCompositeNode>(BTNode))
+                NodeType = TEXT("composite");
+            else if (Cast<UBTTaskNode>(BTNode))
+                NodeType = TEXT("task");
+            else if (Cast<UBTDecorator>(BTNode))
+                NodeType = TEXT("decorator");
+            else if (Cast<UBTService>(BTNode))
+                NodeType = TEXT("service");
+            else
+                NodeType = TEXT("unknown");
+            NodeJson->SetStringField(TEXT("node_type"), NodeType);
+
+            // Serialize EditAnywhere properties
+            TSharedPtr<FJsonObject> PropsObj = MakeShareable(new FJsonObject());
+            for (TFieldIterator<FProperty> PropIt(BTNode->GetClass()); PropIt; ++PropIt)
+            {
+                FProperty* Prop = *PropIt;
+                if (!Prop->HasAnyPropertyFlags(CPF_Edit)) continue;
+
+                FString ValueStr;
+                const void* ValueAddr = Prop->ContainerPtrToValuePtr<void>(BTNode);
+                Prop->ExportText_Direct(ValueStr, ValueAddr, nullptr, BTNode, PPF_None);
+                PropsObj->SetStringField(Prop->GetName(), ValueStr);
+            }
+            NodeJson->SetObjectField(TEXT("properties"), PropsObj);
+
+            NodesArr.Add(MakeShareable(new FJsonValueObject(NodeJson)));
+        }
+
+        // Build result
+        TSharedPtr<FJsonObject> ResultObj = MakeShareable(new FJsonObject());
+        ResultObj->SetBoolField(TEXT("success"), true);
+        ResultObj->SetStringField(TEXT("behavior_tree_path"), BT->GetPathName());
+        ResultObj->SetArrayField(TEXT("selected_nodes"), NodesArr);
+        ResultObj->SetNumberField(TEXT("count"), NodesArr.Num());
+
+        FString ResultStr;
+        TSharedRef<TJsonWriter<>> ResultWriter = TJsonWriterFactory<>::Create(&ResultStr);
+        FJsonSerializer::Serialize(ResultObj.ToSharedRef(), ResultWriter);
+        return ResultStr;
+    }
+
+    return TEXT("{\"success\":false,\"message\":\"No Behavior Tree editor is open in the foreground.\"}");
 }

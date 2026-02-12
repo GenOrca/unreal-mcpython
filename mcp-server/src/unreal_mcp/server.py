@@ -6,6 +6,7 @@ from unreal_mcp.tool_routers.asset_router import asset_mcp
 from unreal_mcp.tool_routers.actor_router import actor_mcp
 from unreal_mcp.tool_routers.material_router import material_mcp
 from unreal_mcp.tool_routers.editor_router import editor_mcp
+from unreal_mcp.tool_routers.behavior_tree_router import behavior_tree_mcp
 
 main_mcp = FastMCP(
     name="Unreal MCP Server",
@@ -19,6 +20,7 @@ main_mcp.mount("asset", asset_mcp)
 main_mcp.mount("actor", actor_mcp)
 main_mcp.mount("material", material_mcp)
 main_mcp.mount("editor", editor_mcp)
+main_mcp.mount("behavior_tree", behavior_tree_mcp)
 
 def run_server():
     """Entry point function for the Unreal MCP Server"""
