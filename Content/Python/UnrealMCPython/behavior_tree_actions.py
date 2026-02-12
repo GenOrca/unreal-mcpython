@@ -677,3 +677,38 @@ def ue_set_blackboard_to_behavior_tree(bt_path: str = None, bb_path: str = None)
         tb_str = traceback.format_exc()
         unreal.log_error(f"Error in ue_set_blackboard_to_behavior_tree: {str(e)}\n{tb_str}")
         return json.dumps({"success": False, "message": str(e), "traceback": tb_str})
+
+
+def ue_build_behavior_tree(asset_path: str = None, tree_structure: dict = None) -> str:
+    """Builds a complete Behavior Tree from a JSON structure."""
+    if asset_path is None:
+        return json.dumps({"success": False, "message": "Required parameter 'asset_path' is missing."})
+    if tree_structure is None:
+        return json.dumps({"success": False, "message": "Required parameter 'tree_structure' is missing."})
+
+    try:
+        bt, err = _load_asset(asset_path, unreal.BehaviorTree)
+        if err:
+            return err
+
+        # Convert dict to JSON string for C++ helper
+        tree_json = json.dumps(tree_structure)
+
+        # Call C++ helper to build the tree
+        result_json = unreal.MCPythonHelper.build_behavior_tree(bt, tree_json)
+        return result_json
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        unreal.log_error(f"Error in ue_build_behavior_tree: {str(e)}\n{tb_str}")
+        return json.dumps({"success": False, "message": str(e), "traceback": tb_str})
+
+
+def ue_list_bt_node_classes() -> str:
+    """Lists all available BT node classes (composites, tasks, decorators, services)."""
+    try:
+        result_json = unreal.MCPythonHelper.list_bt_node_classes()
+        return result_json
+    except Exception as e:
+        tb_str = traceback.format_exc()
+        unreal.log_error(f"Error in ue_list_bt_node_classes: {str(e)}\n{tb_str}")
+        return json.dumps({"success": False, "message": str(e), "traceback": tb_str})

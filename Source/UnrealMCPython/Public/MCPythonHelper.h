@@ -116,4 +116,12 @@ public:
     /** Get details of selected nodes in the BT editor as JSON */
     UFUNCTION(BlueprintCallable, Category="Editor|MCPython")
     static FString GetSelectedBTNodes();
+
+    /** Build a complete Behavior Tree from a JSON structure */
+    UFUNCTION(BlueprintCallable, Category="Editor|MCPython")
+    static FString BuildBehaviorTree(UBehaviorTree* BehaviorTree, const FString& TreeStructureJson);
+
+    /** List all available BT node classes (composites, tasks, decorators, services) */
+    UFUNCTION(BlueprintCallable, Category="Editor|MCPython")
+    static FString ListBTNodeClasses();
 };

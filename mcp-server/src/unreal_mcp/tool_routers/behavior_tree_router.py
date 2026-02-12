@@ -158,3 +158,36 @@ async def set_blackboard_to_behavior_tree(
     """Links a Blackboard asset to a Behavior Tree."""
     params = {"bt_path": bt_path, "bb_path": bb_path}
     return await send_unreal_action(BT_ACTIONS_MODULE, params)
+
+
+@behavior_tree_mcp.tool(
+    name="build_behavior_tree",
+    description=(
+        "Builds a complete Behavior Tree from a JSON structure. Replaces all existing nodes. "
+        "The JSON format mirrors get_behavior_tree_structure output: "
+        '{"node_class": "BTComposite_Selector", "children": [...], "decorators": [...], "services": [...], "properties": {...}}. '
+        "Use list_bt_node_classes to discover available node class names."
+    ),
+    tags={"unreal", "ai", "behavior-tree", "build", "write"}
+)
+async def build_behavior_tree(
+    asset_path: Annotated[str, Field(description="Path to the Behavior Tree asset (e.g., '/Game/AI/BT_Enemy').")],
+    tree_structure: Annotated[dict, Field(description=(
+        "JSON object defining the tree hierarchy. Top-level must be a composite node. "
+        "Each node: {node_class, children?, decorators?, services?, properties?}. "
+        "Decorators/services: {class, properties?}."
+    ))]
+) -> dict:
+    """Builds a complete Behavior Tree from a JSON structure."""
+    params = {"asset_path": asset_path, "tree_structure": tree_structure}
+    return await send_unreal_action(BT_ACTIONS_MODULE, params)
+
+
+@behavior_tree_mcp.tool(
+    name="list_bt_node_classes",
+    description="Lists all available Behavior Tree node classes: composites, tasks, decorators, and services. Useful for discovering valid node_class values for build_behavior_tree.",
+    tags={"unreal", "ai", "behavior-tree", "list", "classes"}
+)
+async def list_bt_node_classes() -> dict:
+    """Lists all available BT node classes."""
+    return await send_unreal_action(BT_ACTIONS_MODULE, {})
