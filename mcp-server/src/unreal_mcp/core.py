@@ -96,3 +96,67 @@ async def send_to_unreal(action_module: str, action_name: str, params: dict) -> 
         raise
     except Exception as e: # Catch any other unexpected errors
         raise UnrealExecutionError(f"An unexpected error occurred in send_to_unreal ({HOST}:{PORT}): {type(e).__name__} - {e}", details={"host": HOST, "port": PORT, "error_type": type(e).__name__})
+
+
+async def send_livecoding_compile() -> dict:
+    """
+    Sends a livecoding_compile command to the Unreal Engine TCP server.
+    Triggers C++ hot-reload via the LiveCoding module.
+    Waits for compilation to complete before returning the result.
+    """
+    HOST = '127.0.0.1'
+    PORT = 12029
+    TIMEOUT = 180
+    command = {"type": "livecoding_compile"}
+    response_str = ""
+    try:
+        json_str = json.dumps(command, ensure_ascii=False)
+        message_bytes = json_str.encode('utf-8')
+
+        with socket.create_connection((HOST, PORT), timeout=TIMEOUT) as sock:
+            sock.sendall(message_bytes)
+            response_buffer = b''
+            while True:
+                chunk = sock.recv(16384)
+                if not chunk:
+                    break
+                response_buffer += chunk
+
+            if not response_buffer:
+                raise UnrealExecutionError(
+                    "No response received from Unreal for LiveCoding compile.",
+                    details={"host": HOST, "port": PORT}
+                )
+
+            response_str = response_buffer.decode('utf-8')
+            response_json = json.loads(response_str)
+
+            if isinstance(response_json, dict) and response_json.get("success") is False:
+                raise UnrealExecutionError(
+                    response_json.get("message", "LiveCoding compile failed."),
+                    details=response_json
+                )
+            return response_json
+
+    except socket.timeout:
+        raise UnrealExecutionError(
+            f"Socket timeout ({HOST}:{PORT}): LiveCoding compilation did not complete within {TIMEOUT}s.",
+            details={"host": HOST, "port": PORT}
+        )
+    except ConnectionRefusedError:
+        raise UnrealExecutionError(
+            f"Connection refused ({HOST}:{PORT}). Ensure Unreal MCPython TCP server is active.",
+            details={"host": HOST, "port": PORT}
+        )
+    except json.JSONDecodeError as je:
+        raise UnrealExecutionError(
+            f"Failed to decode JSON response: {je}. Raw: '{response_str}'",
+            details={"host": HOST, "port": PORT, "raw_response": response_str}
+        )
+    except UnrealExecutionError:
+        raise
+    except Exception as e:
+        raise UnrealExecutionError(
+            f"Unexpected error during LiveCoding compile: {type(e).__name__} - {e}",
+            details={"host": HOST, "port": PORT, "error_type": type(e).__name__}
+        )

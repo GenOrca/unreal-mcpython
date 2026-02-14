@@ -9,6 +9,8 @@
 #include "Serialization/JsonSerializer.h"
 #include "Serialization/JsonReader.h"
 #include "Dom/JsonObject.h"
+#include "ILiveCodingModule.h"
+#include "Containers/Ticker.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogMCPython, Log, All);
 
@@ -82,6 +84,38 @@ FString ConvertJsonValueToPythonLiteral(const TSharedPtr<FJsonValue>& JsonVal)
 
 FMCPythonTcpServer::FMCPythonTcpServer() {}
 FMCPythonTcpServer::~FMCPythonTcpServer() { Stop(); }
+
+void FMCPythonTcpServer::SendJsonResponse(TSharedPtr<FJsonObject> ResponseJson, FSocket* ClientSocket, bool bCloseSocket)
+{
+	FString ResultJson;
+	TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&ResultJson);
+	FJsonSerializer::Serialize(ResponseJson.ToSharedRef(), Writer);
+	Writer->Close();
+
+	FTCHARToUTF8 ResultUtf8(*ResultJson);
+	const uint8* DataPtr = (const uint8*)ResultUtf8.Get();
+	int32 TotalSize = ResultUtf8.Length();
+	int32 TotalSent = 0;
+	while (TotalSent < TotalSize)
+	{
+		int32 SentNow = 0;
+		if (!ClientSocket->Send(DataPtr + TotalSent, TotalSize - TotalSent, SentNow))
+		{
+			break;
+		}
+		if (SentNow == 0)
+		{
+			break;
+		}
+		TotalSent += SentNow;
+	}
+
+	if (bCloseSocket)
+	{
+		ClientSocket->Close();
+		ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM)->DestroySocket(ClientSocket);
+	}
+}
 
 bool FMCPythonTcpServer::Start(const FString& InIP, uint16 InPort)
 {
@@ -191,6 +225,87 @@ void FMCPythonTcpServer::ProcessDataOnGameThread(const FString& Data, FSocket* C
                     ResultMsg = TEXT("Failed: Missing 'module' or 'function' field for type 'python_call'");
                     CodeField = TEXT("import json; print(json.dumps({'success': False, 'message': 'Error: module/function field missing'}))");
                 }
+            }
+            else if (TypeField == TEXT("livecoding_compile"))
+            {
+                ILiveCodingModule* LiveCoding = FModuleManager::GetModulePtr<ILiveCodingModule>(TEXT("LiveCoding"));
+                if (!LiveCoding)
+                {
+                    TSharedPtr<FJsonObject> Response = MakeShareable(new FJsonObject);
+                    Response->SetBoolField(TEXT("success"), false);
+                    Response->SetStringField(TEXT("message"), TEXT("LiveCoding module is not available."));
+                    SendJsonResponse(Response, ClientSocket);
+                    return;
+                }
+
+                if (!LiveCoding->IsEnabledForSession())
+                {
+                    TSharedPtr<FJsonObject> Response = MakeShareable(new FJsonObject);
+                    Response->SetBoolField(TEXT("success"), false);
+                    Response->SetStringField(TEXT("message"), TEXT("LiveCoding is not enabled for this session. Enable it in Editor Preferences > Live Coding."));
+                    SendJsonResponse(Response, ClientSocket);
+                    return;
+                }
+
+                ELiveCodingCompileResult CompileResult;
+                bool bStarted = LiveCoding->Compile(ELiveCodingCompileFlags::None, &CompileResult);
+
+                if (CompileResult == ELiveCodingCompileResult::CompileStillActive)
+                {
+                    TSharedPtr<FJsonObject> Response = MakeShareable(new FJsonObject);
+                    Response->SetBoolField(TEXT("success"), false);
+                    Response->SetStringField(TEXT("message"), TEXT("LiveCoding compilation is already in progress."));
+                    SendJsonResponse(Response, ClientSocket);
+                    return;
+                }
+
+                if (CompileResult == ELiveCodingCompileResult::NotStarted)
+                {
+                    TSharedPtr<FJsonObject> Response = MakeShareable(new FJsonObject);
+                    Response->SetBoolField(TEXT("success"), false);
+                    Response->SetStringField(TEXT("message"), TEXT("Failed to start LiveCoding compilation. Live coding monitor could not be started."));
+                    SendJsonResponse(Response, ClientSocket);
+                    return;
+                }
+
+                // InProgress: poll until done
+                UE_LOG(LogMCPython, Log, TEXT("LiveCoding compile started. Waiting for completion..."));
+
+                double StartTime = FPlatformTime::Seconds();
+                double TimeoutSeconds = 120.0;
+
+                FTSTicker::GetCoreTicker().AddTicker(
+                    FTickerDelegate::CreateLambda(
+                        [this, ClientSocket, LiveCoding, StartTime, TimeoutSeconds](float DeltaTime) -> bool
+                        {
+                            if (LiveCoding->IsCompiling())
+                            {
+                                double ElapsedTime = FPlatformTime::Seconds() - StartTime;
+                                if (ElapsedTime > TimeoutSeconds)
+                                {
+                                    TSharedPtr<FJsonObject> Response = MakeShareable(new FJsonObject);
+                                    Response->SetBoolField(TEXT("success"), false);
+                                    Response->SetStringField(TEXT("message"),
+                                        FString::Printf(TEXT("LiveCoding compilation timed out after %.0f seconds."), TimeoutSeconds));
+                                    SendJsonResponse(Response, ClientSocket);
+                                    return false;
+                                }
+                                return true;
+                            }
+
+                            double ElapsedTime = FPlatformTime::Seconds() - StartTime;
+                            TSharedPtr<FJsonObject> Response = MakeShareable(new FJsonObject);
+                            Response->SetBoolField(TEXT("success"), true);
+                            Response->SetStringField(TEXT("message"),
+                                FString::Printf(TEXT("LiveCoding compilation finished in %.1f seconds. Check get_output_log for the result. If compilation failed, use Build.bat or msbuild-mcp-server to check detailed error messages."), ElapsedTime));
+                            Response->SetNumberField(TEXT("elapsed_seconds"), ElapsedTime);
+                            SendJsonResponse(Response, ClientSocket);
+                            return false;
+                        }),
+                    0.5f
+                );
+
+                return;
             }
             else
             {

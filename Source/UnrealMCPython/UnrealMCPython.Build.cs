@@ -54,6 +54,7 @@ public class UnrealMCPython : ModuleRules
 				"GameplayTasks",
 				"AIGraph",
 				"BehaviorTreeEditor",
+				"LiveCoding",
 			}
 			);
 		
