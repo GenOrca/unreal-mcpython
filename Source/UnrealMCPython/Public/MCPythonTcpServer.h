@@ -31,6 +31,8 @@ private:
 	FString CapturedLogs;
 };
 
+using FNativeCommandHandler = TFunction<void(TSharedPtr<FJsonObject> JsonObj, FSocket* ClientSocket)>;
+
 class FMCPythonTcpServer
 {
 public:
@@ -45,8 +47,13 @@ private:
 	FSocket* ListenSocket = nullptr;
 	bool bShouldRun = false;
 	FPythonLogCapture LogCapture;
+	TMap<FString, FNativeCommandHandler> NativeHandlers;
 
+	void RegisterNativeHandlers();
 	bool HandleIncomingConnection(FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint);
 	void ProcessDataOnGameThread(const FString& Data, FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint);
 	void SendJsonResponse(TSharedPtr<FJsonObject> ResponseJson, FSocket* ClientSocket, bool bCloseSocket = true);
+
+	// Native command handlers
+	void HandleLiveCodingCompile(TSharedPtr<FJsonObject> JsonObj, FSocket* ClientSocket);
 };
