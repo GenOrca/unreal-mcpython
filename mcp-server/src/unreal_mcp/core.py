@@ -98,6 +98,64 @@ async def send_to_unreal(action_module: str, action_name: str, params: dict) -> 
         raise UnrealExecutionError(f"An unexpected error occurred in send_to_unreal ({HOST}:{PORT}): {type(e).__name__} - {e}", details={"host": HOST, "port": PORT, "error_type": type(e).__name__})
 
 
+async def send_python_exec(code: str) -> dict:
+    """
+    Sends raw Python code to the Unreal Engine TCP server for execution.
+    Uses the existing "type": "python" dispatch path.
+    The C++ server executes the code and captures print() output.
+    """
+    HOST = '127.0.0.1'
+    PORT = 12029
+    TIMEOUT = 30
+    command = {"type": "python", "code": code}
+    response_str = ""
+    try:
+        json_str = json.dumps(command, ensure_ascii=False)
+        message_bytes = json_str.encode('utf-8')
+
+        with socket.create_connection((HOST, PORT), timeout=TIMEOUT) as sock:
+            sock.sendall(message_bytes)
+            response_buffer = b''
+            while True:
+                chunk = sock.recv(16384)
+                if not chunk:
+                    break
+                response_buffer += chunk
+
+            if not response_buffer:
+                raise UnrealExecutionError(
+                    "No response received from Unreal for Python execution.",
+                    details={"host": HOST, "port": PORT}
+                )
+
+            response_str = response_buffer.decode('utf-8')
+            response_json = json.loads(response_str)
+            return response_json
+
+    except socket.timeout:
+        raise UnrealExecutionError(
+            f"Socket timeout ({HOST}:{PORT}): Python execution did not complete within {TIMEOUT}s.",
+            details={"host": HOST, "port": PORT}
+        )
+    except ConnectionRefusedError:
+        raise UnrealExecutionError(
+            f"Connection refused ({HOST}:{PORT}). Ensure Unreal MCPython TCP server is active.",
+            details={"host": HOST, "port": PORT}
+        )
+    except json.JSONDecodeError as je:
+        raise UnrealExecutionError(
+            f"Failed to decode JSON response: {je}. Raw: '{response_str}'",
+            details={"host": HOST, "port": PORT, "raw_response": response_str}
+        )
+    except UnrealExecutionError:
+        raise
+    except Exception as e:
+        raise UnrealExecutionError(
+            f"Unexpected error during Python execution: {type(e).__name__} - {e}",
+            details={"host": HOST, "port": PORT, "error_type": type(e).__name__}
+        )
+
+
 async def send_livecoding_compile() -> dict:
     """
     Sends a livecoding_compile command to the Unreal Engine TCP server.
