@@ -106,7 +106,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release create "${{ steps.version.outputs.tag }}" \
-            "$ZIP_NAME" \
-            --generate-notes \
-            --title "UnrealMCPython ${{ steps.version.outputs.tag }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          if gh release view "$TAG" &>/dev/null; then
+            gh release upload "$TAG" "$ZIP_NAME" --clobber
+          else
+            gh release create "$TAG" \
+              "$ZIP_NAME" \
+              --generate-notes \
+              --title "$TAG"
+          fi
