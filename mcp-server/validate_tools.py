@@ -23,14 +23,24 @@ from pathlib import Path
 ROUTER_DIR = Path(__file__).parent / "src" / "unreal_mcp" / "tool_routers"
 
 
+def _calls_send_unreal_action(func_node: ast.AsyncFunctionDef) -> bool:
+    """Check if an async function body contains a call to send_unreal_action."""
+    for node in ast.walk(func_node):
+        if isinstance(node, ast.Call):
+            func = node.func
+            if isinstance(func, ast.Name) and func.id == "send_unreal_action":
+                return True
+    return False
+
+
 def extract_async_functions(filepath: Path) -> list[str]:
-    """Extract all async function names from a Python file using AST."""
+    """Extract async function names that use send_unreal_action from a Python file."""
     source = filepath.read_text(encoding="utf-8")
     tree = ast.parse(source, filename=str(filepath))
     return [
         node.name
         for node in ast.walk(tree)
-        if isinstance(node, ast.AsyncFunctionDef)
+        if isinstance(node, ast.AsyncFunctionDef) and _calls_send_unreal_action(node)
     ]
 
 
